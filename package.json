@@ -23,7 +23,8 @@
     "test:e2e": "playwright test",
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
-    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json",
+    "fixtures": "node scripts/write-fixtures.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

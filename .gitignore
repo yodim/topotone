@@ -13,3 +13,4 @@ playwright-report/
 *.m4a
 *.flac
 *.aac
+tests/fixtures/out/
