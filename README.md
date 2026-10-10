@@ -2,7 +2,7 @@
 
 Topotone turns sound into landscape. A song, a microphone or a seeded random source drives a procedural world that scrolls from right to left. Melody raises mountains, beats plant trees, bass carves rivers. The same world can be drawn in several art styles.
 
-It is early days. With no sound, the world is driven by a seeded synthetic source that behaves like music. Drop a song and the world follows it. Everything is drawn in a debug wireframe style for now, and the microphone comes next. See [PLAN.md](PLAN.md) for where it is heading.
+It is early days. With no sound, the world is driven by a seeded synthetic source that behaves like music. Drop a song, or turn on the microphone, and the world follows it. Everything is drawn in a debug wireframe style for now. See [PLAN.md](PLAN.md) for where it is heading.
 
 ## Trying it
 
@@ -10,7 +10,8 @@ It is early days. With no sound, the world is driven by a seeded synthetic sourc
 - `?speed=4` runs the music faster (from 0.05 to 50).
 - `?style=debug` picks a style. Debug is the only one so far.
 - Drop a song anywhere on the page, or press `O` to pick one. It is analyzed first, then played. `Space` pauses and resumes.
-- Press `D` to show the feature meters and the frame rate.
+- Press `M` to listen to the microphone. New land grows at the right as it is heard. `M` again hands back to the landscape's own music.
+- Press `D` to show the feature meters, the playhead and the frame rate.
 
 Your audio never leaves your device. There are no network calls, analytics or uploads.
 
@@ -32,7 +33,8 @@ src/
   app/                    UI, app state, URL params, keyboard, drag and drop
   core/                   rng.ts (the only randomness), noise.ts, math.ts
   audio/                  features.ts (contract), cache.ts, fft.ts, extractor.ts,
-                          normalize.ts, analysis.ts, analysis.worker.ts
+                          normalize.ts, analysis.ts, analysis.worker.ts, stream.ts,
+                          mic.worklet.ts
     sources/              synthetic.ts, file.ts, mic.ts, manager.ts
   world/                  scene.ts (contract), mapping.ts, signal.ts, generator.ts, store.ts
   render/                 engine.ts, strip.ts, camera.ts, export.ts
