@@ -13,9 +13,14 @@ export class FrameWindow<C extends string> {
   readonly times: Float64Array;
   private readonly columns: Record<C, Float64Array>;
 
+  /**
+   * With `causal`, mean() looks back only: the window ends at the time asked for. Live input
+   * needs that, so a value never changes once the frames up to its time exist.
+   */
   constructor(
     readonly frames: readonly FeatureFrame[],
     columns: Record<C, ColumnFn>,
+    readonly causal = false,
   ) {
     // Plain loops: Float64Array.from with a map function is several times slower.
     const n = frames.length;
@@ -55,8 +60,9 @@ export class FrameWindow<C extends string> {
     return sum / (j - i);
   }
 
-  /** Mean of a column over a window of the given width, centred on t. */
+  /** Mean of a column over a window of the given width, centred on t (or ending at t). */
   mean(column: C, t: number, width: number): number {
+    if (this.causal) return this.meanRange(column, t - width, t + 1e-9);
     return this.meanRange(column, t - width / 2, t + width / 2);
   }
 }

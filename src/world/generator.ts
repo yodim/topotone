@@ -5,7 +5,7 @@
  */
 import { FeatureCache } from '../audio/cache';
 import type { FeatureSource } from '../audio/features';
-import { lerp } from '../core/math';
+import { clamp01, lerp, smoothstep } from '../core/math';
 import { hashSeed } from '../core/rng';
 import {
   MAPPING,
@@ -27,12 +27,25 @@ import {
 } from './scene';
 import { ChunkStore } from './store';
 
+/** Live input: how long a far chunk takes to ease from its frozen neighbor's edge. */
+const LIVE_JOIN_SECONDS = 2;
+
 /** Sky states are computed per block of this many seconds, on a fixed grid. */
 const SKY_BLOCK_SECONDS = 4;
 const MAX_SKY_BLOCKS = 128;
 
+/**
+ * Near layers are revealed progressively under live input, so their chunks stay open (rebuilt,
+ * never cached) until the features for their whole span exist. Far layers are built once from
+ * the latest values when they come into view, then frozen.
+ */
+export function isProgressive(layer: number): boolean {
+  return (LAYERS[layer]?.depth ?? 0) >= 0.5;
+}
+
 export class World {
   private cache: FeatureCache;
+  private causal = false;
   private readonly store = new ChunkStore(LAYERS.length);
   private readonly skyBlocks = new Map<number, SkyState[]>();
   private built = 0;
@@ -40,20 +53,31 @@ export class World {
   constructor(
     readonly seed: number,
     readonly source: FeatureSource,
+    /** World time up to which features are final. Finite only while a live source runs. */
+    private readonly liveUntil: () => number = () => Infinity,
   ) {
-    this.cache = new FeatureCache(source);
+    this.cache = new FeatureCache(source, undefined, undefined, liveUntil);
   }
 
   chunk(layer: number, index: number): LayerChunk {
+    if (this.isOpen(layer, index)) return this.build(layer, index);
     return this.store.get(layer, index, () => this.build(layer, index));
+  }
+
+  /** True while a near-layer chunk still waits for live features. */
+  isOpen(layer: number, index: number): boolean {
+    return (
+      this.causal && isProgressive(layer) && chunkStart(index) + CHUNK_SECONDS >= this.liveUntil()
+    );
   }
 
   /**
    * Forgets everything built so far. Called when the source timeline changes (a song starts):
    * the world is frozen per timeline, and a new timeline means new land.
    */
-  reset(): void {
-    this.cache = new FeatureCache(this.source);
+  reset(causal = false): void {
+    this.causal = causal;
+    this.cache = new FeatureCache(this.source, undefined, undefined, this.liveUntil);
     this.store.clear();
     this.skyBlocks.clear();
   }
@@ -94,7 +118,7 @@ export class World {
     const t1 = t0 + CHUNK_SECONDS;
     const margin = MAPPING.margin;
     const frames = this.cache.frames(t0 - margin, t1 + margin);
-    const win = featureWindow(frames);
+    const win = featureWindow(frames, this.causal);
     const c = MAPPING.crescendo;
     const reach = Math.max(c.peakRadius, c.birdSpread * 1.4);
     const ctx: MapContext = {
@@ -107,6 +131,19 @@ export class World {
     const step = CHUNK_SECONDS / RIDGE_SAMPLES;
     for (let i = 0; i <= RIDGE_SAMPLES; i++) {
       ridge[i] = ridgeHeight(spec.role, t0 + i * step, ctx);
+    }
+    // Live input: far layers are frozen when they first come into view, so neighbors can be
+    // built from different amounts of audio. A chunk built next to a frozen one starts on its
+    // edge and eases into its own shape, so the join never shows as a step.
+    const prev =
+      this.causal && !isProgressive(layer) ? this.store.peek(layer, index - 1) : undefined;
+    const edge = prev?.ridge[RIDGE_SAMPLES];
+    if (edge !== undefined) {
+      const offset = edge - (ridge[0] as number);
+      for (let i = 0; i <= RIDGE_SAMPLES; i++) {
+        const w = 1 - smoothstep(0, LIVE_JOIN_SECONDS, i * step);
+        ridge[i] = clamp01((ridge[i] as number) + offset * w);
+      }
     }
 
     this.built++;
@@ -128,12 +165,13 @@ export class World {
     let states = this.skyBlocks.get(block);
     if (!states) {
       const from = block * perBlock;
-      const half = MAPPING.sky.toneWindow / 2 + 1;
-      const win = featureWindow(
-        this.cache.frames(from * step - half, (from + perBlock) * step + half),
-      );
+      const before = this.causal ? MAPPING.sky.toneWindow + 1 : MAPPING.sky.toneWindow / 2 + 1;
+      const after = this.causal ? 1 : MAPPING.sky.toneWindow / 2 + 1;
+      const end = (from + perBlock) * step;
+      const win = featureWindow(this.cache.frames(from * step - before, end + after), this.causal);
       states = Array.from({ length: perBlock }, (_, i) => skyAt((from + i) * step, win, this.seed));
-      this.skyBlocks.set(block, states);
+      // A block whose features are still arriving is recomputed next time instead of kept.
+      if (end + 1 < this.liveUntil()) this.skyBlocks.set(block, states);
       while (this.skyBlocks.size > MAX_SKY_BLOCKS) {
         const oldest = this.skyBlocks.keys().next().value;
         if (oldest === undefined) break;

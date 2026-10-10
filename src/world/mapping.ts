@@ -93,13 +93,20 @@ export function frameTone(f: FeatureFrame): number {
 
 export type Column = 'rms' | 'low' | 'tone' | 'flux';
 
-export function featureWindow(frames: readonly FeatureFrame[]): FrameWindow<Column> {
-  return new FrameWindow(frames, {
-    rms: (f) => f.rms,
-    low: (f) => f.low,
-    tone: frameTone,
-    flux: (f) => f.flux,
-  });
+export function featureWindow(
+  frames: readonly FeatureFrame[],
+  causal = false,
+): FrameWindow<Column> {
+  return new FrameWindow(
+    frames,
+    {
+      rms: (f) => f.rms,
+      low: (f) => f.low,
+      tone: frameTone,
+      flux: (f) => f.flux,
+    },
+    causal,
+  );
 }
 
 export interface MapContext {
@@ -188,7 +195,8 @@ export interface Crescendo {
 /**
  * Sudden peaks in loudness between from and to. Scores are taken on a fixed grid of
  * absolute time, and an event must beat every other score within `isolation` seconds,
- * so every chunk finds the same events.
+ * so every chunk finds the same events. With a causal window (live input) an event is the
+ * first score over the threshold after `isolation` seconds below it.
  */
 export function findCrescendos(
   win: FrameWindow<Column>,
@@ -213,9 +221,15 @@ export function findCrescendos(
     const score = scores[i] ?? 0;
     if (score < c.threshold) continue;
     let isPeak = true;
-    for (let j = i - reach; j <= i + reach && isPeak; j++) {
-      const other = scores[j] ?? 0;
-      if (j < i ? other >= score : j > i && other > score) isPeak = false;
+    if (win.causal) {
+      // Live: the future is unknown, so the event is the first crossing after a calm stretch.
+      for (let j = i - reach; j < i && isPeak; j++)
+        if ((scores[j] ?? 0) >= c.threshold) isPeak = false;
+    } else {
+      for (let j = i - reach; j <= i + reach && isPeak; j++) {
+        const other = scores[j] ?? 0;
+        if (j < i ? other >= score : j > i && other > score) isPeak = false;
+      }
     }
     if (!isPeak) continue;
     const t = g * c.grid;
