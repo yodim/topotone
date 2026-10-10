@@ -7,8 +7,8 @@
  */
 import { createRng, hashSeed } from '../core/rng';
 import type { ChunkEnv, Style, View } from '../styles/types';
-import type { World } from '../world/generator';
-import { LAYERS, chunkIndexAt, chunkStart } from '../world/scene';
+import { isProgressive, type World } from '../world/generator';
+import { CHUNK_SECONDS, LAYERS, chunkIndexAt, chunkStart } from '../world/scene';
 import { projectLayer, screenX, timeAtX, viewScale, type LayerProjection } from './camera';
 import { LayerStrip } from './strip';
 
@@ -120,10 +120,16 @@ export function startLoop(canvas: HTMLCanvasElement, draw: DrawFn): Loop {
 interface LayerState {
   projection: LayerProjection;
   strip: LayerStrip;
+  /** Live input: open chunks and the live time they were last drawn up to. */
+  revealed: Map<number, number>;
 }
 
 /** Fraction of the view width where the playhead sits. */
 const PLAYHEAD = 0.5;
+/** How fast the playhead slides to a new position, in view widths per second. */
+const PLAYHEAD_SPEED = 0.5;
+/** Live input: open near-layer chunks are redrawn this often (seconds of new features). */
+const REVEAL_STEP = 0.25;
 
 /** Seconds over which old land fades out after the world is rebuilt. */
 const FADE_SECONDS = 0.5;
@@ -144,6 +150,9 @@ export class Renderer {
   private scale = 1;
   private fading: Fading | null = null;
   private clock = 0;
+  private playhead = PLAYHEAD;
+  private playheadTarget = PLAYHEAD;
+  private liveUntil = Infinity;
 
   constructor(
     private readonly world: World,
@@ -165,14 +174,38 @@ export class Renderer {
     this.surfaceKey = '';
   }
 
+  /** Where the playhead is now, as a fraction of the view width. */
+  get playheadFraction(): number {
+    return this.playhead;
+  }
+
+  /** Moves the playhead (a fraction of the view width) there, sliding over about a second. */
+  setPlayhead(fraction: number): void {
+    this.playheadTarget = fraction;
+  }
+
   /** Switches style. Every cached chunk is redrawn on the next frame. */
   setStyle(style: Style): void {
     this.style = style;
     for (const layer of this.layers) layer.strip.invalidate();
   }
 
-  render(ctx: CanvasRenderingContext2D, surface: Surface, now: number, clock: number): void {
+  /**
+   * Draws one frame. liveUntil is the world time up to which live features are final:
+   * near-layer land is only drawn up to there, and grows in steps as features arrive.
+   */
+  render(
+    ctx: CanvasRenderingContext2D,
+    surface: Surface,
+    now: number,
+    clock: number,
+    liveUntil = Infinity,
+  ): void {
+    const step = Math.max(0, clock - this.clock) * PLAYHEAD_SPEED;
+    const gap = this.playheadTarget - this.playhead;
+    this.playhead += Math.max(-step, Math.min(step, gap));
     this.clock = clock;
+    this.liveUntil = liveUntil;
     this.fit(surface);
     const fading = this.fading;
     const fade = fading ? 1 - (clock - fading.start) / FADE_SECONDS : 0;
@@ -184,7 +217,7 @@ export class Renderer {
       now,
       clock,
     };
-    const playheadX = surface.cssWidth * PLAYHEAD;
+    const playheadX = surface.cssWidth * this.playhead;
     const sky = this.world.skyAt(now);
 
     ctx.save();
@@ -195,6 +228,7 @@ export class Renderer {
       const { projection: p, strip } = layer;
       const first = chunkIndexAt(timeAtX(0, now, playheadX, p.pxPerSecond));
       const last = chunkIndexAt(timeAtX(surface.cssWidth, now, playheadX, p.pxPerSecond));
+      this.refreshOpen(layer, i);
       this.chunksRendered += strip.ensure(first, last, (sctx, index, x) =>
         this.renderChunk(sctx, i, index, x, p),
       );
@@ -270,7 +304,20 @@ export class Renderer {
         projection.heightPx,
         this.shiftScratch,
       ),
+      revealed: new Map<number, number>(),
     }));
+  }
+
+  /** Marks open chunks for redrawing once enough new live features have arrived. */
+  private refreshOpen(layer: LayerState, i: number): void {
+    if (layer.revealed.size === 0) return;
+    for (const [index, until] of layer.revealed) {
+      const complete = !this.world.isOpen(i, index);
+      if (complete || this.liveUntil - until >= REVEAL_STEP) {
+        layer.revealed.delete(index);
+        layer.strip.invalidateSlot(index);
+      }
+    }
   }
 
   private renderChunk(
@@ -304,8 +351,16 @@ export class Renderer {
     c.setTransform(dpr, 0, 0, dpr, 0, 0);
     this.style.drawLayerChunk(c, chunk, env);
     c.restore();
-    // Only the chunk itself is copied: this is where the bleed gets clipped away.
-    target.drawImage(c.canvas, p.bleedPx, 0, p.chunkPx, p.heightPx, x, 0, p.chunkPx, p.heightPx);
+    // Only the chunk itself is copied: this is where the bleed gets clipped away. A chunk
+    // still waiting for live features is copied only up to the live time.
+    let width = p.chunkPx;
+    if (isProgressive(layer) && world.isOpen(layer, index)) {
+      const known = Math.min(this.liveUntil, start + CHUNK_SECONDS) - start;
+      width = Math.max(0, Math.min(p.chunkPx, Math.floor(known * p.pxPerSecond * dpr)));
+      this.layers[layer]?.revealed.set(index, this.liveUntil);
+    }
+    if (width > 0)
+      target.drawImage(c.canvas, p.bleedPx, 0, width, p.heightPx, x, 0, width, p.heightPx);
   }
 }
 

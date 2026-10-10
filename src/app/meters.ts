@@ -58,6 +58,18 @@ export class Meters {
     this.latest = frames[frames.length - 1] ?? this.latest;
   }
 
+  /** A thin red line where the playhead is: what is heard right now. */
+  drawPlayhead(ctx: CanvasRenderingContext2D, x: number, height: number): void {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(198, 40, 40, 0.45)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(Math.round(x) + 0.5, 28);
+    ctx.lineTo(Math.round(x) + 0.5, height);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   draw(ctx: CanvasRenderingContext2D, height: number): void {
     const pad = 12;
     const rowH = 16;

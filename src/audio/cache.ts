@@ -12,6 +12,8 @@ export class FeatureCache {
     private readonly source: FeatureSource,
     private readonly blockSeconds = 2,
     private readonly maxBlocks = 256,
+    /** Blocks reaching past this time are still filling up (live input) and are not kept. */
+    private readonly knownUntil: () => number = () => Infinity,
   ) {}
 
   /** Frames with t in [from, to), in time order. */
@@ -40,7 +42,9 @@ export class FeatureCache {
       this.blocks.set(b, hit);
       return hit;
     }
-    const frames = this.source.frames(b * this.blockSeconds, (b + 1) * this.blockSeconds);
+    const end = (b + 1) * this.blockSeconds;
+    const frames = this.source.frames(b * this.blockSeconds, end);
+    if (end > this.knownUntil()) return frames;
     this.blocks.set(b, frames);
     while (this.blocks.size > this.maxBlocks) {
       const oldest = this.blocks.keys().next().value;

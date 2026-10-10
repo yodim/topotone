@@ -22,6 +22,11 @@ export class ChunkStore {
     return chunk;
   }
 
+  /** The chunk if it was already built, without building it. */
+  peek(layer: number, index: number): LayerChunk | undefined {
+    return this.layers[layer]?.get(index);
+  }
+
   /** Drops chunks of this layer outside [from, to]. */
   retain(layer: number, from: number, to: number): void {
     const chunks = this.layers[layer];

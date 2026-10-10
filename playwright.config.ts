@@ -13,8 +13,13 @@ export default defineConfig({
     ...devices['Desktop Chrome'],
     launchOptions: {
       ...(executablePath ? { executablePath } : {}),
-      // Lets the tests start audio without a real click.
-      args: ['--autoplay-policy=no-user-gesture-required'],
+      args: [
+        // Lets the tests start audio without a real click.
+        '--autoplay-policy=no-user-gesture-required',
+        // A fake microphone that plays a beep, and a permission prompt that says yes.
+        '--use-fake-device-for-media-stream',
+        '--use-fake-ui-for-media-stream',
+      ],
     },
   },
   webServer: {

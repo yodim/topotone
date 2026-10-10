@@ -95,11 +95,6 @@ const debug: Style = {
       view.width - 12,
       20,
     );
-    ctx.strokeStyle = 'rgba(198, 40, 40, 0.35)';
-    ctx.beginPath();
-    ctx.moveTo(Math.round(view.width / 2) + 0.5, 28);
-    ctx.lineTo(Math.round(view.width / 2) + 0.5, view.height);
-    ctx.stroke();
   },
 
   drawLayerChunk(ctx, chunk, env: ChunkEnv) {

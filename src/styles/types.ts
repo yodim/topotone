@@ -35,7 +35,14 @@ export interface View {
 }
 
 export interface ChunkEnv {
-  /** Seeded for this chunk. The only randomness allowed. */
+  /**
+   * Seeded for this chunk, for the ridge, water and texture. The only randomness allowed
+   * besides object seeds.
+   *
+   * Per-object detail (a tree's branches, a rock's outline) must come from
+   * createRng(object.seed), never from this rng. Under live input a chunk is redrawn as new
+   * objects arrive; drawing from a shared sequence would change the objects already on screen.
+   */
   rng: Rng;
   /** Sky at the chunk start, for palette decisions. */
   sky: SkyState;

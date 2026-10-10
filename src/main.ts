@@ -1,6 +1,7 @@
 import { bindFiles } from './app/files';
 import { bindKeys } from './app/keyboard';
 import { Meters } from './app/meters';
+import { MicSwitch } from './app/mic';
 import { parseParams, seedFromText } from './app/params';
 import { SongLoader, audioContext } from './app/songs';
 import { Status } from './app/status';
@@ -33,16 +34,18 @@ if (params.style && params.style !== style.id) {
 const status = new Status(statusEl);
 const synthetic: SyntheticSource = new SyntheticSource(seed, (): number => manager.now());
 const manager: SourceManager = new SourceManager(synthetic, params.speed);
-const world = new World(seed, manager);
+const world = new World(seed, manager, () => manager.liveUntil());
 await style.setup?.({ seed, dpr: Math.min(window.devicePixelRatio || 1, MAX_DPR) });
 const renderer = new Renderer(world, style);
 const meters = new Meters(manager, seed);
 
-// A new song means a new timeline: rebuild the world and fade the new land in.
+// A new song, or the mic, means a new timeline: rebuild the world and fade the new land in.
+// Live input needs windows that only look back, so the land never changes once drawn.
 manager.onTimelineChange = () => {
-  world.reset();
+  world.reset(manager.kind === 'mic');
   renderer.reset();
 };
+const mic = new MicSwitch(manager, status);
 
 const songs = new SongLoader(status, (song) => manager.playSong(song));
 bindFiles(fileInput, (file) => void songs.load(file));
@@ -50,9 +53,13 @@ bindFiles(fileInput, (file) => void songs.load(file));
 bindKeys({
   d: () => meters.toggle(),
   o: () => fileInput.click(),
+  m: () => void mic.toggle(),
   ' ': () => {
     if (manager.song) void audioContext().resume();
-    manager.togglePause();
+    if (!manager.togglePause()) {
+      status.show('The microphone cannot pause. Press M to stop it.');
+      return;
+    }
     if (manager.isPaused) status.show('Paused. Space to continue.', { stay: true });
     else status.hide();
   },
@@ -61,9 +68,15 @@ bindKeys({
 startLoop(canvas, (ctx, frame) => {
   manager.tick(frame.dt);
   const now = manager.now();
-  renderer.render(ctx, frame.surface, now, frame.time);
+  // Live input has no future to show: the playhead moves near the right edge.
+  renderer.setPlayhead(manager.kind === 'mic' ? 0.92 : 0.5);
+  renderer.render(ctx, frame.surface, now, frame.time, manager.liveUntil());
   meters.update(now, frame.dt);
-  if (meters.visible) meters.draw(ctx, frame.surface.cssHeight);
+  if (meters.visible) {
+    const { cssWidth, cssHeight } = frame.surface;
+    meters.drawPlayhead(ctx, cssWidth * renderer.playheadFraction, cssHeight);
+    meters.draw(ctx, cssHeight);
+  }
 });
 
 window.topotone = {
@@ -74,6 +87,7 @@ window.topotone = {
     now: manager.now(),
     paused: manager.isPaused,
     song: manager.song?.name ?? null,
+    live: manager.liveUntil(),
   }),
   onsets: (from, to, min = 0.3) =>
     manager
