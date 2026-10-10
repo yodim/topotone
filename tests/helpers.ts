@@ -36,3 +36,25 @@ export function functionSource(fn: (t: number) => Partial<FeatureFrame>): Featur
     },
   };
 }
+
+/** A source that serves already analyzed frames, like a song file without playback. */
+export function trackSource(frames: FeatureFrame[], duration: number): FeatureSource {
+  const at = (t: number) => {
+    let lo = 0;
+    let hi = frames.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1;
+      if ((frames[mid] as FeatureFrame).t < t) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo;
+  };
+  return {
+    kind: 'file',
+    hopSeconds:
+      frames.length > 1 ? (frames[1] as FeatureFrame).t - (frames[0] as FeatureFrame).t : HOP,
+    now: () => 0,
+    lookahead: () => duration,
+    frames: (from, to) => frames.slice(at(from), at(to)),
+  };
+}
