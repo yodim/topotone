@@ -347,40 +347,42 @@ export const ONSET_DEFAULTS: OnsetOptions = {
 };
 
 /**
- * Adaptive peak picking over a normalized flux curve: a frame is an onset when it is a local
- * peak and rises clearly above the local median. Returns the onset strength per frame, 0
- * elsewhere. Uses a centred median, so it needs the frames on both sides (offline use).
+ * Adaptive peak picking at one frame of a normalized flux curve: the frame is an onset when it
+ * is a local peak and rises clearly above the local median. Returns its strength, or 0.
+ *
+ * The peak check always needs `peakFrames` frames after i. The median is centred for offline
+ * use; with `causal` it only looks back, which is what live input can afford.
  */
+export function onsetAt(
+  flux: ArrayLike<number>,
+  i: number,
+  opts: OnsetOptions = ONSET_DEFAULTS,
+  causal = false,
+  scratch: number[] = [],
+): number {
+  const n = flux.length;
+  const v = flux[i] as number;
+  if (!(v >= opts.floor)) return 0;
+  for (let j = Math.max(0, i - opts.peakFrames); j <= Math.min(n - 1, i + opts.peakFrames); j++) {
+    const u = flux[j] as number;
+    if (j < i ? u >= v : j > i && u > v) return 0;
+  }
+  const from = Math.max(0, causal ? i - 2 * opts.medianFrames : i - opts.medianFrames);
+  const to = Math.min(n - 1, causal ? i : i + opts.medianFrames);
+  scratch.length = 0;
+  for (let j = from; j <= to; j++) scratch.push(flux[j] as number);
+  scratch.sort((a, b) => a - b);
+  const median = scratch[scratch.length >> 1] ?? 0;
+  return v >= median + opts.delta ? Math.min(1, v) : 0;
+}
+
+/** Onset strengths for a whole curve, with the centred median (offline use). */
 export function pickOnsets(
   flux: ArrayLike<number>,
   opts: OnsetOptions = ONSET_DEFAULTS,
 ): Float64Array {
-  const n = flux.length;
-  const out = new Float64Array(n);
+  const out = new Float64Array(flux.length);
   const scratch: number[] = [];
-  for (let i = 0; i < n; i++) {
-    const v = flux[i] as number;
-    if (v < opts.floor) continue;
-    let isPeak = true;
-    for (let j = Math.max(0, i - opts.peakFrames); j <= Math.min(n - 1, i + opts.peakFrames); j++) {
-      const u = flux[j] as number;
-      if (j < i ? u >= v : j > i && u > v) {
-        isPeak = false;
-        break;
-      }
-    }
-    if (!isPeak) continue;
-    scratch.length = 0;
-    for (
-      let j = Math.max(0, i - opts.medianFrames);
-      j <= Math.min(n - 1, i + opts.medianFrames);
-      j++
-    ) {
-      scratch.push(flux[j] as number);
-    }
-    scratch.sort((a, b) => a - b);
-    const median = scratch[scratch.length >> 1] ?? 0;
-    if (v >= median + opts.delta) out[i] = Math.min(1, v);
-  }
+  for (let i = 0; i < flux.length; i++) out[i] = onsetAt(flux, i, opts, false, scratch);
   return out;
 }

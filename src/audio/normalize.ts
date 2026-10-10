@@ -118,45 +118,66 @@ export function normalizeFrame(f: RawFrame, s: TrackStats): FeatureFrame {
   };
 }
 
+/** A band onset within this many frames of a full-spectrum onset moves onto it. */
+export const ONSET_SNAP_FRAMES = 3;
+
+/** Onset picks per frame: the whole spectrum and each band. Missing frames count as 0. */
+export interface OnsetPicks {
+  all: ArrayLike<number>;
+  low: ArrayLike<number>;
+  mid: ArrayLike<number>;
+  high: ArrayLike<number>;
+}
+
+export interface FrameOnsets {
+  onset: number;
+  onsetLow: number;
+  onsetMid: number;
+  onsetHigh: number;
+}
+
+/**
+ * The onsets that land on frame f. The overall onset comes from the whole spectrum. A band
+ * onset moves onto the nearest full-spectrum onset within ONSET_SNAP_FRAMES (the earlier one
+ * on a tie), so one hit never marks two neighboring frames. Everything is reported
+ * ONSET_LAG_FRAMES late. Needs picks up to f - ONSET_LAG_FRAMES + 2 * ONSET_SNAP_FRAMES.
+ */
+export function onsetsAt(f: number, picks: OnsetPicks): FrameOnsets {
+  const snap = ONSET_SNAP_FRAMES;
+  const p = f - ONSET_LAG_FRAMES;
+  const at = (values: ArrayLike<number>, i: number) =>
+    i >= 0 && i < values.length ? (values[i] as number) : 0;
+  const place = (b: number) => {
+    let best = -1;
+    for (let j = b - snap; j <= b + snap; j++) {
+      if (at(picks.all, j) > 0 && (best < 0 || Math.abs(j - b) < Math.abs(best - b))) best = j;
+    }
+    return best < 0 ? b : best;
+  };
+  const out: FrameOnsets = { onset: at(picks.all, p), onsetLow: 0, onsetMid: 0, onsetHigh: 0 };
+  for (let b = p - snap; b <= p + snap; b++) {
+    const low = at(picks.low, b);
+    const mid = at(picks.mid, b);
+    const high = at(picks.high, b);
+    if (low + mid + high <= 0 || place(b) !== p) continue;
+    out.onsetLow = Math.max(out.onsetLow, low);
+    out.onsetMid = Math.max(out.onsetMid, mid);
+    out.onsetHigh = Math.max(out.onsetHigh, high);
+  }
+  out.onset = Math.max(out.onset, out.onsetLow, out.onsetMid, out.onsetHigh);
+  return out;
+}
+
 /** A whole track at once: statistics, normalization and onset picking. */
 export function normalizeTrack(raw: readonly RawFrame[]): FeatureFrame[] {
   const stats = trackStats(raw);
-  const frames = raw.map((f) => normalizeFrame(f, stats));
   const curve = (key: 'flux' | 'fluxLow' | 'fluxMid' | 'fluxHigh', scale: number) =>
     raw.map((f) => Math.min(1, f[key] / scale));
-  const all = pickOnsets(curve('flux', stats.flux));
-  const low = pickOnsets(curve('fluxLow', stats.fluxLow));
-  const mid = pickOnsets(curve('fluxMid', stats.fluxMid));
-  const high = pickOnsets(curve('fluxHigh', stats.fluxHigh));
-  // The overall onset comes from the whole spectrum. A band onset within SNAP frames of it
-  // moves onto the same frame, so one hit never marks two neighboring frames.
-  const SNAP = 3;
-  const n = frames.length;
-  const place = (i: number) => {
-    let best = -1;
-    for (let j = Math.max(0, i - SNAP); j <= Math.min(n - 1, i + SNAP); j++) {
-      if ((all[j] ?? 0) > 0 && (best < 0 || Math.abs(j - i) < Math.abs(best - i))) best = j;
-    }
-    return (best < 0 ? i : best) + ONSET_LAG_FRAMES;
+  const picks: OnsetPicks = {
+    all: pickOnsets(curve('flux', stats.flux)),
+    low: pickOnsets(curve('fluxLow', stats.fluxLow)),
+    mid: pickOnsets(curve('fluxMid', stats.fluxMid)),
+    high: pickOnsets(curve('fluxHigh', stats.fluxHigh)),
   };
-  for (let i = 0; i < n; i++) {
-    const at = (j: number) => frames[j];
-    if ((all[i] ?? 0) > 0) {
-      const f = at(i + ONSET_LAG_FRAMES);
-      if (f) f.onset = Math.max(f.onset, all[i] ?? 0);
-    }
-    for (const [key, values] of [
-      ['onsetLow', low],
-      ['onsetMid', mid],
-      ['onsetHigh', high],
-    ] as const) {
-      const v = values[i] ?? 0;
-      if (v <= 0) continue;
-      const f = at(place(i));
-      if (!f) continue;
-      f[key] = Math.max(f[key], v);
-      f.onset = Math.max(f.onset, v);
-    }
-  }
-  return frames;
+  return raw.map((f, i) => ({ ...normalizeFrame(f, stats), ...onsetsAt(i, picks) }));
 }
