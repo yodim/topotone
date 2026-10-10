@@ -1,0 +1,41 @@
+{
+  "name": "topotone",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Sound turned into a scrolling landscape.",
+  "type": "module",
+  "license": "MIT",
+  "author": "yodim",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yodim/topotone.git"
+  },
+  "homepage": "https://yodim.github.io/topotone/",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "lint": "eslint . && prettier --check .",
+    "format": "prettier --write .",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.64.0",
+    "@types/node": "^24.19.2",
+    "eslint": "^10.12.0",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.13.0",
+    "prettier": "^3.9.10",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.71.1",
+    "vite": "^8.3.4",
+    "vitest": "^5.0.3"
+  }
+}
