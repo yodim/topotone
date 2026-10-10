@@ -46,7 +46,7 @@ describe('World', () => {
 
   it('keeps the first minute of seed 1 stable', () => {
     // Update on purpose (vitest -u) when the mapping or the synthetic source changes.
-    expect(hashChunks(firstMinute(world(1)))).toMatchInlineSnapshot(`"284d093d"`);
+    expect(hashChunks(firstMinute(world(1)))).toMatchInlineSnapshot(`"bdaed8e6"`);
   });
 
   it('has no seams: neighboring chunks share their edge sample exactly', () => {

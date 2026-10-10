@@ -53,25 +53,40 @@ describe('mapping', () => {
     expect(hills.length).toBeGreaterThan(0);
   });
 
-  it('raises the far range with brightness', () => {
+  it('raises the mountains where the music gets brighter, relative to the song', () => {
     const avg = (r: Float32Array) => r.reduce((s, v) => s + v, 0) / r.length;
-    let dark = 0;
-    let bright = 0;
-    for (let i = 0; i < 20; i++) {
-      dark += avg(
-        new World(
-          1,
-          functionSource(() => ({ centroid: 0.1 })),
-        ).chunk(FAR, i).ridge,
-      );
-      bright += avg(
-        new World(
-          1,
-          functionSource(() => ({ centroid: 0.9 })),
-        ).chunk(FAR, i).ridge,
-      );
+    const mean = (w: World, l: number, chunks: number[]) =>
+      chunks.reduce((s, i) => s + avg(w.chunk(l, i).ridge), 0) / chunks.length;
+    // Dark for 40 s, then bright, against the same world with steady brightness: the noise is
+    // identical, so any difference is the music.
+    const shift = new World(
+      1,
+      functionSource((t) => ({ centroid: t < 40 ? 0.3 : 0.5 })),
+    );
+    const steady = new World(
+      1,
+      functionSource(() => ({ centroid: 0.3 })),
+    );
+    for (const l of [FAR, MID]) {
+      const lift = (chunks: number[]) => mean(shift, l, chunks) - mean(steady, l, chunks);
+      // They follow the contour: up right after the change, then back to the song's average
+      // as the brighter part goes on.
+      expect(lift([10, 11])).toBeGreaterThan(0.05);
+      expect(lift([10, 11])).toBeGreaterThan(lift([8, 9]) + 0.1);
+      expect(Math.abs(lift([16, 17]))).toBeLessThan(0.02);
     }
-    expect(bright).toBeGreaterThan(dark + 20 * 0.2);
+    // A song that is dark all along gets the same mountains as one that is bright all along:
+    // only the movement counts. The absolute value tints the sky instead.
+    const dark = new World(
+      1,
+      functionSource(() => ({ centroid: 0.1 })),
+    );
+    const bright = new World(
+      1,
+      functionSource(() => ({ centroid: 0.9 })),
+    );
+    expect(mean(dark, FAR, [2, 3, 4])).toBeCloseTo(mean(bright, FAR, [2, 3, 4]), 6);
+    expect(bright.skyAt(10).warmth).toBeGreaterThan(dark.skyAt(10).warmth + 0.5);
   });
 
   it('marks a sudden jump in loudness with a lone peak or birds', () => {

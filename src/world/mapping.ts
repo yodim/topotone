@@ -1,16 +1,19 @@
 /**
- * The musical design: how features turn into terrain. Version 0, following the table in
- * PLAN.md. Every constant lives in MAPPING below and gets tuned by ear in Phase 3.
+ * The musical design: how features turn into terrain. Version 1 (Phase 3). Every constant
+ * lives in MAPPING below; the ?tune panel edits them live.
  *
  * Rules of thumb:
  * - Features set the large shapes. Seeded noise adds the detail on top.
  * - Far layers follow slow, heavily smoothed features. Near layers follow fast ones.
  * - Every value is a function of (seed, time, nearby frames). Nothing carries state from
  *   one chunk to the next, which is what keeps chunk edges invisible.
- * - Windows are full widths in seconds, centred on the time asked for.
+ * - Windows are full widths in seconds, centred on the time asked for (or ending at it, for
+ *   live input).
+ * - Mountains follow brightness and pitch relative to the music around them: a dark song
+ *   still has peaks and valleys. The absolute value only tints the sky (warmth).
  */
 import type { FeatureFrame } from '../audio/features';
-import { bump, clamp01, lerp, smoothstep } from '../core/math';
+import { bump, clamp01, lerp, smoothstep, softClamp01 } from '../core/math';
 import { fbm1 } from '../core/noise';
 import { hash01, hashSeed } from '../core/rng';
 import type { LayerRole, SkyState, WaterSpan, WorldObject } from './scene';
@@ -20,35 +23,44 @@ export const MAPPING = {
   /** How much a confident pitch pulls the "tone" away from the spectral centroid. */
   pitchWeight: 0.6,
 
-  /** Distant range: slow melody or brightness sets the height. */
+  /**
+   * Context for relative tone: the mean and spread of `sample`-second tone means over the
+   * window, taken on a fixed grid. A tone `spread` deviations above the mean reads as 1, as
+   * far below as 0. `minSd` keeps a nearly static song from being blown up into peaks.
+   */
+  context: { window: 30, sample: 1, grid: 0.5, spread: 1.6, minSd: 0.03 },
+
+  /** Distant range: slow melody or brightness sets the height, energy lifts it a little. */
   far: {
     window: 3,
-    base: 0.3,
-    tone: 0.45,
+    base: 0.2,
+    tone: 0.5,
+    energyWindow: 10,
+    energy: 0.15,
     noiseFreq: 0.045,
-    noiseAmp: 0.3,
+    noiseAmp: 0.12,
     detailFreq: 0.35,
+    detailAmp: 0.04,
+  },
+  /** Middle range: melody or brightness, over about a second. */
+  mid: {
+    window: 1,
+    base: 0.18,
+    tone: 0.45,
+    noiseFreq: 0.12,
+    noiseAmp: 0.12,
+    detailFreq: 0.9,
     detailAmp: 0.05,
   },
-  /** Middle range: melody or brightness, about 0.5 s. */
-  mid: {
-    window: 0.5,
-    base: 0.22,
-    tone: 0.38,
-    noiseFreq: 0.12,
-    noiseAmp: 0.28,
-    detailFreq: 0.9,
-    detailAmp: 0.06,
-  },
-  /** Hills: loudness, about 0.2 s, sets height and ruggedness. */
+  /** Hills: loudness sets height; it also sets how rugged they are. */
   hills: {
-    window: 0.2,
-    base: 0.16,
-    loud: 0.42,
+    window: 0.6,
+    base: 0.14,
+    loud: 0.45,
     noiseFreq: 0.3,
-    noiseAmp: 0.16,
-    rugged: 0.18,
-    detailFreq: 2.2,
+    noiseAmp: 0.1,
+    rugged: 0.14,
+    detailFreq: 1.6,
   },
   /** Ground: mostly noise, flattened by water and silence. */
   ground: { base: 0.4, noiseFreq: 0.45, noiseAmp: 0.18, detailFreq: 3, detailAmp: 0.04 },
@@ -78,12 +90,40 @@ export const MAPPING = {
     birdSpread: 1.5,
   },
 
-  /** Sky: long-term energy sets the mood, track brightness sets warmth. */
-  sky: { energyWindow: 10, toneWindow: 30, mistWindow: 5, grid: 0.25 },
+  /**
+   * A drop: a crescendo after a build-up (loudness rising over the seconds before). It gets
+   * both a lone peak and birds, a taller peak, and the hills lift for a few seconds.
+   */
+  drop: {
+    riseFrom: 9,
+    riseTo: 6,
+    nearFrom: 3,
+    nearTo: 0.5,
+    rise: 0.12,
+    peakBoost: 1.4,
+    hillsLift: 0.18,
+    liftSeconds: 8,
+  },
+
+  /** Sky: long-term energy sets the mood, absolute brightness sets warmth. */
+  sky: { energyWindow: 10, toneWindow: 30, mistWindow: 2.5, grid: 0.25 },
 
   /** Seconds of frames fetched on each side of a chunk. Must cover the widest window used. */
-  margin: 12,
-} as const;
+  margin: 24,
+};
+
+export type Mapping = typeof MAPPING;
+
+/** The values MAPPING started with, for the tuning panel's reset and diff. */
+export const MAPPING_DEFAULTS: Mapping = structuredClone(MAPPING);
+
+/** Frames needed before and after a chunk, for centred or for causal (live) windows. */
+export function chunkMargins(causal: boolean): { before: number; after: number } {
+  const m = MAPPING.margin;
+  return causal
+    ? { before: Math.max(m, MAPPING.context.window + MAPPING.far.window + 1), after: 1 }
+    : { before: m, after: m };
+}
 
 /** Brightness blended with pitch when the pitch is confident. */
 export function frameTone(f: FeatureFrame): number {
@@ -113,6 +153,49 @@ export interface MapContext {
   seed: number;
   win: FrameWindow<Column>;
   crescendos: readonly Crescendo[];
+  /** Context statistics per grid point, filled lazily. */
+  contextCache?: Map<number, { mean: number; sd: number }>;
+}
+
+function contextAtGrid(ctx: MapContext, g: number): { mean: number; sd: number } {
+  ctx.contextCache ??= new Map();
+  let stats = ctx.contextCache.get(g);
+  if (!stats) {
+    // Statistics of 1 s means across the context window: the contour of the music, not the
+    // frame-to-frame jitter of single notes and drum hits.
+    const c = MAPPING.context;
+    const centre = g * c.grid;
+    const count = Math.max(1, Math.round(c.window / c.sample));
+    const first = ctx.win.causal ? -count + 1 : -Math.floor(count / 2);
+    let sum = 0;
+    let sumSq = 0;
+    for (let k = 0; k < count; k++) {
+      const m = ctx.win.mean('tone', centre + (first + k) * c.sample, c.sample);
+      sum += m;
+      sumSq += m * m;
+    }
+    const mean = sum / count;
+    stats = { mean, sd: Math.sqrt(Math.max(0, sumSq / count - mean * mean)) };
+    ctx.contextCache.set(g, stats);
+  }
+  return stats;
+}
+
+/**
+ * Tone relative to the music around it, 0..1, averaged over `width` seconds. The context
+ * statistics are sampled on a fixed grid of absolute time and interpolated, so the result
+ * stays a smooth function of time.
+ */
+export function relativeTone(ctx: MapContext, t: number, width: number): number {
+  const c = MAPPING.context;
+  const u = t / c.grid;
+  const g = Math.floor(u);
+  const a = contextAtGrid(ctx, g);
+  const b = contextAtGrid(ctx, g + 1);
+  const mean = lerp(a.mean, b.mean, u - g);
+  const sd = Math.max(c.minSd, lerp(a.sd, b.sd, u - g));
+  const tone = ctx.win.mean('tone', t, width);
+  return clamp01(0.5 + (tone - mean) / (2 * c.spread * sd));
 }
 
 /** 0 with sound, 1 after a long silence. */
@@ -142,24 +225,36 @@ export function ridgeHeight(role: LayerRole, t: number, ctx: MapContext): number
   switch (role) {
     case 'far-range': {
       const m = MAPPING.far;
-      const tone = win.mean('tone', t, m.window);
+      const tone = relativeTone(ctx, t, m.window);
+      const energy = win.mean('rms', t, m.energyWindow);
       const detail = fbm1(layerNoise(seed, role, 'detail'), t * m.detailFreq, 2);
-      return clamp01(
-        m.base + m.tone * tone + m.noiseAmp * shape + m.detailAmp * detail + peaksAt(ctx, t),
+      return softClamp01(
+        m.base +
+          m.tone * tone +
+          m.energy * energy +
+          m.noiseAmp * shape +
+          m.detailAmp * detail +
+          peaksAt(ctx, t),
       );
     }
     case 'mid-range': {
       const m = MAPPING.mid;
-      const tone = win.mean('tone', t, m.window);
+      const tone = relativeTone(ctx, t, m.window);
       const detail = fbm1(layerNoise(seed, role, 'detail'), t * m.detailFreq, 2);
-      return clamp01(m.base + m.tone * tone + m.noiseAmp * shape + m.detailAmp * detail);
+      return softClamp01(m.base + m.tone * tone + m.noiseAmp * shape + m.detailAmp * detail);
     }
     case 'hills': {
       const m = MAPPING.hills;
       const loud = win.mean('rms', t, m.window);
       const rugged = fbm1(layerNoise(seed, role, 'detail'), t * m.detailFreq, 3);
-      const h = m.base + m.loud * loud + m.noiseAmp * shape + m.rugged * loud * rugged;
-      return clamp01(lerp(h, MAPPING.silence.plain, 0.6 * silenceAt(win, t)));
+      // Loud passages are taller and more rugged; quiet ones are low and smooth.
+      const h =
+        m.base +
+        m.loud * loud +
+        m.noiseAmp * (0.5 + loud) * shape +
+        m.rugged * loud * rugged +
+        dropLiftAt(ctx, t);
+      return softClamp01(lerp(h, MAPPING.silence.plain, 0.6 * silenceAt(win, t)));
     }
     case 'ground': {
       const m = MAPPING.ground;
@@ -167,7 +262,7 @@ export function ridgeHeight(role: LayerRole, t: number, ctx: MapContext): number
       let h = m.base + m.noiseAmp * shape + m.detailAmp * detail;
       h = lerp(h, MAPPING.silence.plain, 0.7 * silenceAt(win, t));
       h = lerp(h, MAPPING.water.level, riverAt(win, t));
-      return clamp01(h);
+      return softClamp01(h);
     }
   }
 }
@@ -189,7 +284,8 @@ export interface Crescendo {
   t: number;
   /** 0..1 */
   strength: number;
-  kind: 'peak' | 'birds';
+  /** A drop is a crescendo after a build-up: it gets a peak and birds. */
+  kind: 'peak' | 'birds' | 'drop';
 }
 
 /**
@@ -233,10 +329,15 @@ export function findCrescendos(
     }
     if (!isPeak) continue;
     const t = g * c.grid;
+    const d = MAPPING.drop;
+    const rise =
+      win.meanRange('rms', t - d.nearFrom, t - d.nearTo) -
+      win.meanRange('rms', t - d.riseFrom, t - d.riseTo);
     out.push({
       t,
       strength: clamp01((score - c.threshold) / c.range + 0.3),
-      kind: hash01(seed, 'crescendo', t) < c.peakChance ? 'peak' : 'birds',
+      kind:
+        rise >= d.rise ? 'drop' : hash01(seed, 'crescendo', t) < c.peakChance ? 'peak' : 'birds',
     });
   }
   return out;
@@ -246,10 +347,25 @@ function peaksAt(ctx: MapContext, t: number): number {
   const c = MAPPING.crescendo;
   let h = 0;
   for (const e of ctx.crescendos) {
-    if (e.kind !== 'peak') continue;
-    h = Math.max(h, c.peakHeight * e.strength * bump((t - e.t) / c.peakRadius));
+    if (e.kind === 'birds') continue;
+    const height = c.peakHeight * e.strength * (e.kind === 'drop' ? MAPPING.drop.peakBoost : 1);
+    h = Math.max(h, height * bump((t - e.t) / c.peakRadius));
   }
   return h;
+}
+
+/** After a drop, the hills rise quickly and settle back over a few seconds. */
+function dropLiftAt(ctx: MapContext, t: number): number {
+  const d = MAPPING.drop;
+  let lift = 0;
+  for (const e of ctx.crescendos) {
+    if (e.kind !== 'drop' || t < e.t) continue;
+    const dt = t - e.t;
+    const envelope =
+      smoothstep(0, 0.5, dt) * (1 - smoothstep(d.liftSeconds / 4, d.liftSeconds, dt));
+    lift = Math.max(lift, d.hillsLift * e.strength * envelope);
+  }
+  return lift;
 }
 
 /** Objects that belong to [t0, t1) on this layer. Each object is owned by exactly one chunk. */
@@ -301,10 +417,10 @@ export function objectsFor(
 
   const c = MAPPING.crescendo;
   for (const e of ctx.crescendos) {
-    if (role === 'far-range' && e.kind === 'peak' && e.t >= t0 && e.t < t1) {
+    if (role === 'far-range' && e.kind !== 'birds' && e.t >= t0 && e.t < t1) {
       add('lone-peak', e.t, e.strength);
     }
-    if (role === 'mid-range' && e.kind === 'birds') {
+    if (role === 'mid-range' && e.kind !== 'peak') {
       const count = 3 + Math.floor(hash01(seed, 'flock', e.t) * 5);
       for (let i = 0; i < count; i++) {
         const t = e.t + (hash01(seed, 'bird', e.t, i) * 2 - 0.6) * c.birdSpread;

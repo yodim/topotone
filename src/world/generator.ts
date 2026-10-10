@@ -9,6 +9,7 @@ import { clamp01, lerp, smoothstep } from '../core/math';
 import { hashSeed } from '../core/rng';
 import {
   MAPPING,
+  chunkMargins,
   featureWindow,
   findCrescendos,
   objectsFor,
@@ -116,11 +117,12 @@ export class World {
     if (!spec) throw new Error(`No layer ${layer}`);
     const t0 = chunkStart(index);
     const t1 = t0 + CHUNK_SECONDS;
-    const margin = MAPPING.margin;
-    const frames = this.cache.frames(t0 - margin, t1 + margin);
+    const { before, after } = chunkMargins(this.causal);
+    const frames = this.cache.frames(t0 - before, t1 + after);
     const win = featureWindow(frames, this.causal);
     const c = MAPPING.crescendo;
-    const reach = Math.max(c.peakRadius, c.birdSpread * 1.4);
+    // Events that reach into this chunk: peaks on either side, birds, and a drop's lift.
+    const reach = Math.max(c.peakRadius, c.birdSpread * 1.4, MAPPING.drop.liftSeconds);
     const ctx: MapContext = {
       seed: this.seed,
       win,
