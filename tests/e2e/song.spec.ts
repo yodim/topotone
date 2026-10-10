@@ -51,6 +51,13 @@ test('a dropped song is analyzed, played and drives the world', async ({ page })
   expect(errors).toEqual([]);
 });
 
+test('the Song button opens the file picker', async ({ page }) => {
+  await page.goto('./?seed=7');
+  const chooser = page.waitForEvent('filechooser');
+  await page.locator('#song-button').click();
+  expect((await chooser).isMultiple()).toBe(false);
+});
+
 test('a file that is not audio gives a friendly message', async ({ page }) => {
   await page.goto('./?seed=7');
   await page.waitForFunction(() => (window.topotone?.stats().chunksRendered ?? 0) > 0);

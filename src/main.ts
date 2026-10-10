@@ -1,3 +1,4 @@
+import { bindControls } from './app/controls';
 import { bindFiles } from './app/files';
 import { bindKeys } from './app/keyboard';
 import { Meters } from './app/meters';
@@ -15,7 +16,8 @@ import { World } from './world/generator';
 const canvas = document.querySelector<HTMLCanvasElement>('#stage');
 const statusEl = document.querySelector<HTMLElement>('#status');
 const fileInput = document.querySelector<HTMLInputElement>('#file-input');
-if (!canvas || !statusEl || !fileInput) throw new Error('Missing page elements');
+const controlsEl = document.querySelector<HTMLElement>('#controls');
+if (!canvas || !statusEl || !fileInput || !controlsEl) throw new Error('Missing page elements');
 
 const params = parseParams(location.search);
 const seed = params.seedText === null ? randomSeed() : seedFromText(params.seedText);
@@ -46,6 +48,10 @@ manager.onTimelineChange = () => {
   renderer.reset();
 };
 const mic = new MicSwitch(manager, status);
+const controls = bindControls(controlsEl, {
+  song: () => fileInput.click(),
+  mic: () => void mic.toggle(),
+});
 
 const songs = new SongLoader(status, (song) => manager.playSong(song));
 bindFiles(fileInput, (file) => void songs.load(file));
@@ -70,6 +76,7 @@ startLoop(canvas, (ctx, frame) => {
   const now = manager.now();
   // Live input has no future to show: the playhead moves near the right edge.
   renderer.setPlayhead(manager.kind === 'mic' ? 0.92 : 0.5);
+  controls.setMicOn(manager.kind === 'mic');
   renderer.render(ctx, frame.surface, now, frame.time, manager.liveUntil());
   meters.update(now, frame.dt);
   if (meters.visible) {
