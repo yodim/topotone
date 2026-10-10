@@ -110,3 +110,30 @@ export function encodeWav({ samples, sampleRate }: Signal): Uint8Array {
   }
   return new Uint8Array(buffer);
 }
+
+/** Gentle and quiet for the first half, loud and busy for the second. */
+export function quietThenLoud(sampleRate = 44100, seconds = 40): Signal {
+  const piece = mixedPiece(sampleRate, seconds).samples;
+  const samples = new Float32Array(piece.length);
+  const half = (seconds / 2) * sampleRate;
+  for (let i = 0; i < piece.length; i++) {
+    samples[i] = (piece[i] ?? 0) * (i < half ? 0.06 : 0.95);
+  }
+  return { samples, sampleRate };
+}
+
+/**
+ * A build-up and a drop: steady and soft, then a build swelling over eight seconds, then a
+ * sudden loud section from `dropAt`.
+ */
+export function buildAndDrop(sampleRate = 44100, seconds = 30, dropAt = 18): Signal {
+  const piece = mixedPiece(sampleRate, seconds).samples;
+  const samples = new Float32Array(piece.length);
+  const buildFrom = dropAt - 8;
+  for (let i = 0; i < piece.length; i++) {
+    const t = i / sampleRate;
+    const gain = t < buildFrom ? 0.08 : t < dropAt ? 0.08 + 0.32 * ((t - buildFrom) / 8) ** 2 : 1;
+    samples[i] = (piece[i] ?? 0) * gain;
+  }
+  return { samples, sampleRate };
+}

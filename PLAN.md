@@ -16,19 +16,20 @@ It is a small, playful project meant to be read, forked and extended. The code s
 
 ## The musical mapping (starting point)
 
-This table is where the project gets its personality. All constants live in `src/world/mapping.ts`, commented, and will be tuned in Phase 3.
+This table is where the project gets its personality. All constants live in `src/world/mapping.ts`, commented, and can be tuned live with `?tune`. The table shows mapping version 1 (Phase 3).
 
-| Heard                                                         | Smoothing          | Becomes                                                |
-| ------------------------------------------------------------- | ------------------ | ------------------------------------------------------ |
-| Pitch or brightness (spectral centroid, pitch when confident) | about 0.5 s        | Height of the main mountain range                      |
-| Loudness (RMS)                                                | about 0.2 s        | Height and ruggedness of the foreground hills          |
-| Onsets in the high band (hi-hats, plucks)                     | none               | Grass tufts and small trees                            |
-| Onsets in the low and mid bands (kicks, strong notes)         | none               | Large trees and rocks, size from onset strength        |
-| Sustained low-band energy (bass, drones)                      | about 1 s          | A river appears, its width follows the bass            |
-| Long silence (more than about 2 s)                            | n/a                | A flat plain or a still lake, mist rises               |
-| Long-term energy                                              | about 10 s         | Sky mood: calm and clear to dramatic and clouded       |
-| Overall brightness of the track                               | whole song or 30 s | Palette temperature hint (styles may use or ignore it) |
-| Crescendo, a sudden big peak in loudness                      | n/a                | A tall lone peak, or a flock of birds taking off       |
+| Heard                                                   | Smoothing          | Becomes                                                |
+| ------------------------------------------------------- | ------------------ | ------------------------------------------------------ |
+| Pitch or brightness, relative to the last 30 s of music | 1 s and 3 s        | Height of the middle and far mountain ranges           |
+| Loudness (RMS)                                          | about 0.6 s        | Height and ruggedness of the foreground hills          |
+| Onsets in the high band (hi-hats, plucks)               | none               | Grass tufts and small trees                            |
+| Onsets in the low and mid bands (kicks, strong notes)   | none               | Large trees and rocks, size from onset strength        |
+| Sustained low-band energy (bass, drones)                | about 1 s          | A river appears, its width follows the bass            |
+| Long silence (more than about 2 s)                      | n/a                | A flat plain or a still lake, mist rises               |
+| Long-term energy                                        | about 10 s         | Sky mood: calm and clear to dramatic and clouded       |
+| Overall brightness of the track                         | whole song or 30 s | Palette temperature hint (styles may use or ignore it) |
+| Crescendo, a sudden big peak in loudness                | n/a                | A tall lone peak, or a flock of birds taking off       |
+| A drop: a crescendo after a build-up                    | n/a                | A taller peak, birds, and a lift in the hills          |
 
 Far layers (distant ranges) follow the slow, heavily smoothed features. Near layers follow the fast ones. Seeded noise always adds the fine detail on top.
 
@@ -263,16 +264,28 @@ Notes from 2a:
 
 This phase is about listening, not features. The maintainer tests with real songs of different genres locally (never committed).
 
-- [ ] Dev-only tuning panel (hand-written, no dependency) to tweak the mapping constants live and copy them out as JSON
-- [ ] Far and near layer behavior as described in "Design notes" below, including mic mode
-- [ ] Events: crescendo gives a lone peak or birds taking off; long silence gives a lake and rising mist; a drop after a build-up gives something noticeable
-- [ ] Macro and micro balance: music sets the shape, noise the texture. Avoid the oscilloscope look.
+- [x] Tuning panel (hand-written, no dependency) to tweak the mapping constants live and copy them out as JSON. It opens with `?tune` on any build, not only in development, so the maintainer can tune on the live site.
+- [x] Far and near layer behavior as described in "Design notes" below, including mic mode
+- [x] Events: crescendo gives a lone peak or birds taking off; long silence gives a lake and rising mist; a drop after a build-up gives something noticeable
+- [x] Macro and micro balance: music sets the shape, noise the texture. Avoid the oscilloscope look.
 
 **Done when:**
 
 - The sweep fixture visibly climbs, the click track reads as rhythm in the trees, the drone opens a river, the silent gap gives a calm lake
 - A quiet intro feels calm and a loud chorus feels dramatic
 - The maintainer signs off after trying it with their own songs
+
+Phase 3 runs in two steps. 3a (done): mapping version 1, the tuning panel, the drop event and one automated test per "done when" line above (`tests/musical.test.ts`). 3b: rounds of tuning from the maintainer's notes on real songs, until sign-off.
+
+Notes from 3a:
+
+- The mountains follow brightness and pitch relative to the music around them: the tone over the last 1 s (middle range) or 3 s (far range), against the mean and spread of 1 s tone means over a 30 s window. Before this, with absolute brightness, a real song moved the far range by about 1% of its height while noise moved it by 30%. The context statistics are sampled on a fixed half-second grid and interpolated, so the result stays a function of time and chunk edges stay exact.
+- That makes the mountains show the contour of the melody: a brighter chorus lifts them, and if it goes on they settle back to the song's average within about 15 s. With a song file the analysis sees a little ahead, so the land dips slightly just before a change.
+- The absolute brightness only tints the sky (warmth): a dark song and a bright song get the same mountain shapes.
+- Noise on the far and middle ranges is down from about ±0.3 to ±0.12, so the music sets the shape.
+- Hills follow loudness over 0.6 s instead of 0.2 s, and loudness also scales their ruggedness: quiet passages are low and smooth, loud ones tall and rough.
+- Ridges bend smoothly into their limits (`softClamp01`) instead of being cut, so tall peaks stay rounded.
+- Mist uses the same 2.5 s window as the silence detector, so a gap of a few seconds now raises it.
 
 ### Phase 4: Three styles
 

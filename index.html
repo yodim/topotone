@@ -82,6 +82,69 @@
         width: 18px;
         height: 18px;
       }
+      #tune {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: min(320px, 85vw);
+        overflow-y: auto;
+        padding: 12px;
+        box-sizing: border-box;
+        font:
+          12px/1.4 system-ui,
+          sans-serif;
+        color: #2a2f36;
+        background: rgba(255, 255, 255, 0.94);
+        box-shadow: 1px 0 6px rgba(0, 0, 0, 0.12);
+      }
+      #tune[hidden] {
+        display: none;
+      }
+      #tune .tune-head {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      #tune .tune-head strong {
+        margin-right: auto;
+        font-size: 14px;
+      }
+      #tune button {
+        font: inherit;
+        padding: 4px 8px;
+        border: 1px solid rgba(42, 47, 54, 0.25);
+        border-radius: 4px;
+        background: #fff;
+        cursor: pointer;
+      }
+      #tune p {
+        margin: 8px 0;
+        color: #5b636e;
+      }
+      #tune summary {
+        margin: 8px 0 4px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      #tune label {
+        display: grid;
+        grid-template-columns: 96px 1fr 48px;
+        gap: 6px;
+        align-items: center;
+        padding: 1px 4px;
+      }
+      #tune label.changed {
+        background: #fff3cd;
+      }
+      #tune input {
+        width: 100%;
+      }
+      #tune output {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
       #stage {
         position: fixed;
         inset: 0;

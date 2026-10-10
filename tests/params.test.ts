@@ -7,11 +7,13 @@ describe('parseParams', () => {
       seedText: 'river',
       style: 'ink',
       speed: 2.5,
+      tune: false,
     });
+    expect(parseParams('?tune').tune).toBe(true);
   });
 
   it('falls back to defaults', () => {
-    expect(parseParams('')).toEqual({ seedText: null, style: null, speed: 1 });
+    expect(parseParams('')).toEqual({ seedText: null, style: null, speed: 1, tune: false });
     expect(parseParams('?seed=&speed=fast').speed).toBe(1);
     expect(parseParams('?speed=-3').speed).toBe(1);
     expect(parseParams('?speed=9999').speed).toBe(MAX_SPEED);

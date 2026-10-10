@@ -9,9 +9,11 @@ It is early days. With no sound, the world is driven by a seeded synthetic sourc
 - `?seed=river` picks a world. Any text or number works, and the same seed always gives the same world. Without one, a random seed is chosen and written into the address bar.
 - `?speed=4` runs the music faster (from 0.05 to 50).
 - `?style=debug` picks a style. Debug is the only one so far.
+- On a phone, use the Song and Mic buttons in the corner.
 - Drop a song anywhere on the page, or press `O` to pick one. It is analyzed first, then played. `Space` pauses and resumes.
 - Press `M` to listen to the microphone. New land grows at the right as it is heard. `M` again hands back to the landscape's own music.
 - Press `D` to show the feature meters, the playhead and the frame rate.
+- Add `?tune` to the address to open the tuning panel: one slider per mapping value. Changes rebuild the land and are kept in your browser; `Copy JSON` gives the values you changed, and `T` hides the panel.
 
 Your audio never leaves your device. There are no network calls, analytics or uploads.
 
