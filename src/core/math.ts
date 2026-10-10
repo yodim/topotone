@@ -44,3 +44,20 @@ export function fract(x: number): number {
 export function mod(x: number, m: number): number {
   return ((x % m) + m) % m;
 }
+
+/**
+ * Like clamp01, but bends smoothly into the limits instead of cutting off: values within
+ * `knee` of 0 or 1 approach them without ever reaching them, so peaks stay rounded instead
+ * of turning into flat tables. Identity in the middle, continuous slope at the knees.
+ */
+export function softClamp01(x: number, knee = 0.15): number {
+  if (x > 1 - knee) {
+    const d = x - (1 - knee);
+    return 1 - knee + (knee * d) / (d + knee);
+  }
+  if (x < knee) {
+    const d = knee - x;
+    return knee - (knee * d) / (d + knee);
+  }
+  return x;
+}
