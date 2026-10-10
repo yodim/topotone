@@ -1,4 +1,37 @@
 /**
- * Chunk store and eviction. Phase 1.
+ * Holds generated chunks per layer. Chunks are frozen once made, so the store only ever
+ * adds and evicts. Evicting is always safe: a chunk can be regenerated identically.
  */
-export {};
+import type { LayerChunk } from './scene';
+
+export class ChunkStore {
+  private readonly layers: Map<number, LayerChunk>[];
+
+  constructor(layerCount: number) {
+    this.layers = Array.from({ length: layerCount }, () => new Map<number, LayerChunk>());
+  }
+
+  get(layer: number, index: number, make: () => LayerChunk): LayerChunk {
+    const chunks = this.layers[layer];
+    if (!chunks) throw new Error(`No layer ${layer}`);
+    let chunk = chunks.get(index);
+    if (!chunk) {
+      chunk = make();
+      chunks.set(index, chunk);
+    }
+    return chunk;
+  }
+
+  /** Drops chunks of this layer outside [from, to]. */
+  retain(layer: number, from: number, to: number): void {
+    const chunks = this.layers[layer];
+    if (!chunks) return;
+    for (const index of chunks.keys()) {
+      if (index < from || index > to) chunks.delete(index);
+    }
+  }
+
+  get size(): number {
+    return this.layers.reduce((n, m) => n + m.size, 0);
+  }
+}
