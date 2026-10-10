@@ -6,6 +6,7 @@ import { MicSwitch } from './app/mic';
 import { parseParams, seedFromText } from './app/params';
 import { SongLoader, audioContext } from './app/songs';
 import { Status } from './app/status';
+import { createTunePanel, restoreTuning } from './app/tune';
 import { SourceManager } from './audio/sources/manager';
 import { SyntheticSource } from './audio/sources/synthetic';
 import { randomSeed } from './core/rng';
@@ -33,6 +34,9 @@ if (params.style && params.style !== style.id) {
   console.warn(`Unknown style "${params.style}", using "${style.id}" instead.`);
 }
 
+// Tuned values from an earlier ?tune session apply before anything is built.
+if (params.tune) restoreTuning();
+
 const status = new Status(statusEl);
 const synthetic: SyntheticSource = new SyntheticSource(seed, (): number => manager.now());
 const manager: SourceManager = new SourceManager(synthetic, params.speed);
@@ -43,10 +47,12 @@ const meters = new Meters(manager, seed);
 
 // A new song, or the mic, means a new timeline: rebuild the world and fade the new land in.
 // Live input needs windows that only look back, so the land never changes once drawn.
-manager.onTimelineChange = () => {
+const rebuild = () => {
   world.reset(manager.kind === 'mic');
   renderer.reset();
 };
+manager.onTimelineChange = rebuild;
+const tune = params.tune ? createTunePanel(rebuild) : null;
 const mic = new MicSwitch(manager, status);
 const controls = bindControls(controlsEl, {
   song: () => fileInput.click(),
@@ -58,6 +64,7 @@ bindFiles(fileInput, (file) => void songs.load(file));
 
 bindKeys({
   d: () => meters.toggle(),
+  t: () => tune?.toggle(),
   o: () => fileInput.click(),
   m: () => void mic.toggle(),
   ' ': () => {

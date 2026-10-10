@@ -1,6 +1,7 @@
 /**
  * URL parameters: ?seed= (any text, or a number), ?style= (a style folder name) and
- * ?speed= (how fast music time runs in the fallback, 1 is real time).
+ * ?speed= (how fast music time runs in the fallback, 1 is real time). ?tune opens the tuning
+ * panel.
  */
 import { clamp } from '../core/math';
 import { hashSeed } from '../core/rng';
@@ -10,6 +11,8 @@ export interface Params {
   seedText: string | null;
   style: string | null;
   speed: number;
+  /** Show the tuning panel. */
+  tune: boolean;
 }
 
 export const MIN_SPEED = 0.05;
@@ -22,7 +25,7 @@ export function parseParams(search: string): Params {
   const speedRaw = Number.parseFloat(q.get('speed') ?? '');
   const speed =
     Number.isFinite(speedRaw) && speedRaw > 0 ? clamp(speedRaw, MIN_SPEED, MAX_SPEED) : 1;
-  return { seedText: seed, style, speed };
+  return { seedText: seed, style, speed, tune: q.has('tune') };
 }
 
 /** A whole number from 0 to 2^32 - 1 is used as is. Any other text is hashed. */
