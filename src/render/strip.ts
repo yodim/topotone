@@ -53,6 +53,12 @@ export class LayerStrip {
     return rendered;
   }
 
+  /** Marks one chunk for redrawing on the next ensure(). */
+  invalidateSlot(index: number): void {
+    const i = index - this.first;
+    if (!this.empty && i >= 0 && i < this.slots) this.filled[i] = 0;
+  }
+
   /** Forgets every chunk, for example after a style change. */
   invalidate(): void {
     this.empty = true;
