@@ -125,6 +125,15 @@ interface LayerState {
 /** Fraction of the view width where the playhead sits. */
 const PLAYHEAD = 0.5;
 
+/** Seconds over which old land fades out after the world is rebuilt. */
+const FADE_SECONDS = 0.5;
+
+interface Fading {
+  layers: LayerState[];
+  start: number;
+  surfaceKey: string;
+}
+
 export class Renderer {
   private layers: LayerState[] = [];
   private surfaceKey = '';
@@ -133,6 +142,8 @@ export class Renderer {
   private chunksRendered = 0;
   private dpr = 1;
   private scale = 1;
+  private fading: Fading | null = null;
+  private clock = 0;
 
   constructor(
     private readonly world: World,
@@ -142,6 +153,18 @@ export class Renderer {
     this.shiftScratch = scratchContext();
   }
 
+  /**
+   * Starts over with fresh strips after the world was rebuilt. The old strips keep scrolling
+   * and fade out on top of the new ones, so the change reads as a soft crossfade.
+   */
+  reset(): void {
+    if (this.layers.length > 0) {
+      this.fading = { layers: this.layers, start: this.clock, surfaceKey: this.surfaceKey };
+    }
+    this.layers = [];
+    this.surfaceKey = '';
+  }
+
   /** Switches style. Every cached chunk is redrawn on the next frame. */
   setStyle(style: Style): void {
     this.style = style;
@@ -149,7 +172,11 @@ export class Renderer {
   }
 
   render(ctx: CanvasRenderingContext2D, surface: Surface, now: number, clock: number): void {
+    this.clock = clock;
     this.fit(surface);
+    const fading = this.fading;
+    const fade = fading ? 1 - (clock - fading.start) / FADE_SECONDS : 0;
+    if (fading && (fade <= 0 || fading.surfaceKey !== this.surfaceKey)) this.fading = null;
     const view: View = {
       width: surface.cssWidth,
       height: surface.cssHeight,
@@ -173,6 +200,24 @@ export class Renderer {
       );
       const x = screenX(chunkStart(strip.firstIndex), now, playheadX, p.pxPerSecond);
       ctx.drawImage(strip.canvas, x, p.top, strip.canvas.width / surface.dpr, p.height);
+      const old = this.fading?.layers[i];
+      if (old) {
+        const ox = screenX(
+          chunkStart(old.strip.firstIndex),
+          now,
+          playheadX,
+          old.projection.pxPerSecond,
+        );
+        ctx.globalAlpha = fade;
+        ctx.drawImage(
+          old.strip.canvas,
+          ox,
+          old.projection.top,
+          old.strip.canvas.width / surface.dpr,
+          old.projection.height,
+        );
+        ctx.globalAlpha = 1;
+      }
       this.world.retain(i, first - 2, last + 2);
 
       const spec = LAYERS[i];

@@ -11,7 +11,11 @@ export default defineConfig({
   use: {
     baseURL: 'http://localhost:4173/topotone/',
     ...devices['Desktop Chrome'],
-    ...(executablePath ? { launchOptions: { executablePath } } : {}),
+    launchOptions: {
+      ...(executablePath ? { executablePath } : {}),
+      // Lets the tests start audio without a real click.
+      args: ['--autoplay-policy=no-user-gesture-required'],
+    },
   },
   webServer: {
     command: 'npm run build && npm run preview -- --port 4173 --strictPort',

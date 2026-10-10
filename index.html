@@ -17,6 +17,29 @@
         overflow: hidden;
         background: #f6f3ec;
       }
+      #status {
+        position: fixed;
+        left: 50%;
+        bottom: 20px;
+        transform: translateX(-50%);
+        max-width: calc(100% - 32px);
+        padding: 6px 12px;
+        border-radius: 4px;
+        font:
+          13px/1.4 system-ui,
+          sans-serif;
+        color: #2a2f36;
+        background: rgba(255, 255, 255, 0.86);
+        opacity: 0;
+        transition: opacity 0.4s;
+        pointer-events: none;
+      }
+      #status.visible {
+        opacity: 1;
+      }
+      #status.error {
+        color: #9b1c1c;
+      }
       #stage {
         position: fixed;
         inset: 0;
@@ -29,6 +52,8 @@
   </head>
   <body>
     <canvas id="stage" aria-label="Generated landscape"></canvas>
+    <div id="status" role="status" aria-live="polite"></div>
+    <input id="file-input" type="file" accept="audio/*" hidden />
     <noscript>Topotone needs JavaScript to draw the landscape.</noscript>
     <script type="module" src="/src/main.ts"></script>
   </body>
