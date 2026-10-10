@@ -202,21 +202,30 @@ Each phase ends with all checks green, boxes ticked here, a commit, and a short 
 
 The fallback comes first on purpose. It proves the whole pipeline (features, world, rendering) before any audio exists. Audio sources later just replace the feature source.
 
-- [ ] `rng.ts`: small fast seeded PRNG (sfc32 or mulberry32), `hashSeed(...values)` to derive seeds, helpers (`range`, `int`, `pick`, `chance`, `gaussian`). Tests for determinism.
-- [ ] `noise.ts`: seeded 1D and 2D noise with fbm. Tests.
-- [ ] `SyntheticSource`: music-like feature frames from seeded noise. Phrase-shaped loudness swells, wandering brightness, quasi-regular onsets (a tempo between 70 and 130 bpm with slight swing), occasional quiet passages and bass-heavy sections.
-- [ ] `scene.ts` types, `mapping.ts` v0 following the table above, `generator.ts` producing `LayerChunk`s on demand per (layer, index), `store.ts` with eviction
-- [ ] `camera.ts`: music time to screen x per layer, `x = playheadX + (t - now) * pxPerSecond * parallax(depth)`
-- [ ] `engine.ts`: per-layer chunk canvases with bleed and clipping, compositing with parallax, sky, atmosphere and overlay hooks
-- [ ] `debug` style: ridge polylines, markers for trees and rocks, blue bars for water, vertical ticks for onsets, sky values as text
-- [ ] Feature meters overlay (bars for rms, bands, centroid, onset flashes), toggled with `D`
-- [ ] URL params: `seed`, `style`, `speed`
+- [x] `rng.ts`: small fast seeded PRNG (sfc32 or mulberry32), `hashSeed(...values)` to derive seeds, helpers (`range`, `int`, `pick`, `chance`, `gaussian`). Tests for determinism.
+- [x] `noise.ts`: seeded 1D and 2D noise with fbm. Tests.
+- [x] `SyntheticSource`: music-like feature frames from seeded noise. Phrase-shaped loudness swells, wandering brightness, quasi-regular onsets (a tempo between 70 and 130 bpm with slight swing), occasional quiet passages and bass-heavy sections.
+- [x] `scene.ts` types, `mapping.ts` v0 following the table above, `generator.ts` producing `LayerChunk`s on demand per (layer, index), `store.ts` with eviction
+- [x] `camera.ts`: music time to screen x per layer, `x = playheadX + (t - now) * pxPerSecond * parallax(depth)`
+- [x] `engine.ts`: per-layer chunk canvases with bleed and clipping, compositing with parallax, sky, atmosphere and overlay hooks
+- [x] `debug` style: ridge polylines, markers for trees and rocks, blue bars for water, vertical ticks for onsets, sky values as text
+- [x] Feature meters overlay (bars for rms, bands, centroid, onset flashes), toggled with `D`
+- [x] URL params: `seed`, `style`, `speed`
 
 **Done when:**
 
 - The world scrolls from right to left forever, smoothly, with no visible seams at chunk edges
 - Reloading with the same `?seed=` gives an identical world (test: hash of the generated chunk data for the first 60 seconds is stable)
 - 60 fps holds, and memory stays flat over a 10 minute run
+
+Notes from building it:
+
+- Smoothing is a plain mean over a window centred on the time asked for, never a running average. That keeps every value a function of time, so chunks can be built in any order and edges match exactly (a test checks this).
+- Water comes in fixed cells of 0.5 s of absolute time. Contiguous cells make one river or lake, and styles may blend widths across neighbors.
+- Each layer is cached as one strip canvas holding its visible chunks side by side. The strip is composited with a single drawImage at a fractional offset, which scrolls smoothly and leaves no hairline seams between chunks.
+- World generation and the synthetic source use only arithmetic (no `Math.sin`, `Math.exp`, `Math.log`), so the world comes out identical in every browser. `rng.gaussian` is a sum of four uniforms for the same reason.
+- `registry.ts` already exists in a minimal form, because `?style=` needs it. Phase 4 finishes it with the template.
+- `tests/e2e/longrun.spec.ts` runs about eight minutes of music at `?speed=20` and checks that caches and the JS heap stay flat. The 60 fps part is checked by eye with the `D` meters on real hardware.
 
 ### Phase 2: Listening
 
