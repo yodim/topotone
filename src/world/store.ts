@@ -31,6 +31,10 @@ export class ChunkStore {
     }
   }
 
+  clear(): void {
+    for (const chunks of this.layers) chunks.clear();
+  }
+
   get size(): number {
     return this.layers.reduce((n, m) => n + m.size, 0);
   }

@@ -32,7 +32,7 @@ const SKY_BLOCK_SECONDS = 4;
 const MAX_SKY_BLOCKS = 128;
 
 export class World {
-  private readonly cache: FeatureCache;
+  private cache: FeatureCache;
   private readonly store = new ChunkStore(LAYERS.length);
   private readonly skyBlocks = new Map<number, SkyState[]>();
   private built = 0;
@@ -46,6 +46,16 @@ export class World {
 
   chunk(layer: number, index: number): LayerChunk {
     return this.store.get(layer, index, () => this.build(layer, index));
+  }
+
+  /**
+   * Forgets everything built so far. Called when the source timeline changes (a song starts):
+   * the world is frozen per timeline, and a new timeline means new land.
+   */
+  reset(): void {
+    this.cache = new FeatureCache(this.source);
+    this.store.clear();
+    this.skyBlocks.clear();
   }
 
   /** Lets the store drop chunks of this layer outside [from, to]. */
