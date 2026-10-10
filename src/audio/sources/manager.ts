@@ -25,6 +25,8 @@ export interface Song extends FeatureSource {
   play(): void;
   pause(): void;
   stop(): void;
+  /** Live sources only: source time up to which frames are final. */
+  knownUntil?(): number;
 }
 
 interface Segment {
@@ -86,7 +88,7 @@ export class SourceManager implements FeatureSource {
   tick(dt: number): void {
     const c = this.current;
     if (c) {
-      if (!c.song.ended) return;
+      if (!c.song.ended || !Number.isFinite(c.song.duration)) return;
       this.freeTime = c.start + c.song.duration;
       this.current = null;
     }
@@ -102,8 +104,50 @@ export class SourceManager implements FeatureSource {
     return Infinity;
   }
 
-  /** Starts a song at the current moment. */
+  /** World time up to which the features are final. Infinite unless a live source runs. */
+  liveUntil(): number {
+    const c = this.current;
+    return c?.song.knownUntil ? c.start + c.song.knownUntil() : Infinity;
+  }
+
+  /**
+   * Starts a song, or a live source (infinite duration), at the current moment. The synthetic
+   * source takes over at the song's end.
+   */
   playSong(song: Song): void {
+    const t = this.cut();
+    const end = t + song.duration;
+    this.segments.push({ start: t, end, song });
+    if (Number.isFinite(end)) this.segments.push({ start: end, end: Infinity, song: null });
+    this.current = { song, start: t };
+    this.paused = false;
+    song.play();
+    this.onTimelineChange?.();
+  }
+
+  /** Stops the current song or live source and hands back to the synthetic source now. */
+  stopCurrent(): void {
+    if (!this.current) return;
+    this.cut();
+    this.segments.push({ start: this.freeTime, end: Infinity, song: null });
+    this.onTimelineChange?.();
+  }
+
+  /** Pauses or resumes. Returns false when the current source cannot pause (the mic). */
+  togglePause(): boolean {
+    const c = this.current;
+    if (!c) {
+      this.paused = !this.paused;
+      return true;
+    }
+    if (c.song.kind === 'mic') return false;
+    if (c.song.playing) c.song.pause();
+    else c.song.play();
+    return true;
+  }
+
+  /** Ends the timeline at the current moment, stopping whatever plays. Returns that moment. */
+  private cut(): number {
     const t = this.now();
     if (this.current) {
       this.current.song.stop();
@@ -112,25 +156,8 @@ export class SourceManager implements FeatureSource {
     this.freeTime = t;
     this.segments = this.segments
       .filter((s) => s.start < t)
-      .map((s) => ({ ...s, end: Math.min(s.end, t) }))
-      .concat([
-        { start: t, end: t + song.duration, song },
-        { start: t + song.duration, end: Infinity, song: null },
-      ]);
-    this.current = { song, start: t };
-    this.paused = false;
-    song.play();
-    this.onTimelineChange?.();
-  }
-
-  togglePause(): void {
-    const c = this.current;
-    if (!c) {
-      this.paused = !this.paused;
-      return;
-    }
-    if (c.song.playing) c.song.pause();
-    else c.song.play();
+      .map((s) => ({ ...s, end: Math.min(s.end, t) }));
+    return t;
   }
 
   frames(from: number, to: number): FeatureFrame[] {
