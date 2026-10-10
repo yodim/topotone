@@ -6,9 +6,13 @@ test('the mic drives the world live, and M hands back to the fallback', async ({
   await page.goto('./?seed=7');
   await page.waitForFunction(() => (window.topotone?.stats().chunksRendered ?? 0) > 0);
 
-  await page.keyboard.press('m');
+  // Start with the on-screen button, as on a phone.
+  const button = page.locator('#mic-button');
+  await expect(button).toHaveAttribute('aria-pressed', 'false');
+  await button.click();
   await expect(page.locator('#status')).toContainText('Listening');
   expect((await page.evaluate(() => window.topotone?.source()))?.kind).toBe('mic');
+  await expect(button).toHaveAttribute('aria-pressed', 'true');
 
   await page.waitForTimeout(3000);
   const live = await page.evaluate(() => window.topotone?.source());
@@ -29,6 +33,7 @@ test('the mic drives the world live, and M hands back to the fallback', async ({
 
   await page.keyboard.press('m');
   await expect(page.locator('#status')).toContainText('Microphone off');
+  await expect(button).toHaveAttribute('aria-pressed', 'false');
   const after = await page.evaluate(() => window.topotone?.source());
   expect(after?.kind).toBe('synthetic');
   expect(after?.live).toBe(Infinity);

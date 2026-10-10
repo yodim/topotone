@@ -41,7 +41,7 @@ export class MicSwitch {
       await ctx.resume();
       const mic = await MicSource.open(ctx);
       this.manager.playSong(mic);
-      this.status.show('Listening. Press M to stop.');
+      this.status.show('Listening. Press Mic (or M) to stop.');
     } catch (err) {
       console.warn(err);
       this.status.show(reason(err), { error: true });
