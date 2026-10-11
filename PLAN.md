@@ -163,6 +163,7 @@ export interface ChunkEnv {
   height: number;
   bleed: number; // extra pixels on each side, clipped away by the engine
   scale: number; // size multiplier, 1 for a 1080 px tall view
+  pxPerSecond: number; // this layer's speed in CSS pixels per second of music
   toX(t: number): number; // music time to chunk-local x
   toY(h: number): number; // ridge height 0..1 to y for this layer
 }
@@ -184,6 +185,11 @@ Phase 0:
 Phase 2:
 
 - Style rule: per-object detail comes from `createRng(object.seed)`, never from `env.rng`. Under live input a chunk is redrawn as objects arrive, and a shared sequence would change the objects already drawn. The contract shapes did not change: near layers under live input are rebuilt and redrawn until their features exist, instead of using partial chunks.
+
+Phase 4:
+
+- `ChunkEnv.pxPerSecond` added: the layer's speed in CSS pixels per second of music. Styles used to work it out from two `toX` calls.
+- Style rule, made explicit: anything that continues across a chunk edge (a cut or brushed outline, a wave, a grain pattern) is a function of music time, through the noise helpers in `styles/shared/`, with a seed that does not change from chunk to chunk. `env.rng` is for texture that stays inside the chunk, drawn in a fixed order so a redrawn chunk matches the cached one.
 
 ## Phases
 
@@ -327,6 +333,15 @@ Order: paper cutout first (simplest, validates the `Style` interface), then ink,
 - [ ] Faint wood grain in large flat areas
 
 **Done when:** each style looks intentional on the three reference seeds (screenshots saved in `docs/screenshots/`), holds 60 fps, switches instantly, and stays deterministic.
+
+Phase 4 runs in three pull requests: 4a for the shared helpers, the template, live switching and paper (now the default style); 4b for ink; 4c for ukiyo-e, the reference screenshots and the ticks here.
+
+Notes from 4a:
+
+- Keys `1`, `2` and `3` pick paper, ink and ukiyo-e. The choice goes into the address (`?style=`). Debug is only reachable with `?style=debug`. Styles are set up the first time they are used, and the others are warmed up while the page is idle.
+- A style change reuses the fade from Phase 2: the old style's whole frame (sky included) is drawn aside and fades out over the new one. While old land is on screen, new chunks are drawn under a small budget per frame (10 chunks or 6 ms), and the old land stays fully on top until the new land is complete, so the switch never stalls a frame. The same budget applies when a song starts.
+- `stats().chunkMs` gives the average time to build and draw a chunk.
+- Paper: each layer is a sheet cut along the ridge, with an edge that wobbles as a function of music time, a soft shadow cast upwards onto the sheet behind, and a grain tile per layer anchored to music time. The far and middle ranges get a second, lower sheet of foothills, and the ground a darker verge at the bottom, so the picture has seven sheets instead of four. Water is a paler sheet that tucks in behind the verge. Clouds are ready-made sprites that sink behind the mountains when the sky clears, rather than fading. A world picks one of three paper sets (meadow, autumn, teal) from its seed. The sky sheet is cached and only redrawn when its colors move by a visible step.
 
 ### Phase 5: Panorama export
 
