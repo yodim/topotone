@@ -31,3 +31,41 @@ export function noShadow(ctx: CanvasRenderingContext2D): void {
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 0;
 }
+
+/**
+ * A view-sized canvas that is repainted only when its key changes. Handy for a sky that
+ * changes slowly: per frame it costs one copy instead of gradients and patterns.
+ */
+export class ViewCache {
+  private ctx: CanvasRenderingContext2D | null = null;
+  private key = '';
+
+  /**
+   * The cached canvas, repainted with paint() (in CSS pixels) when the key or the view size
+   * changed. Null where there is no DOM.
+   */
+  get(
+    view: { width: number; height: number; dpr: number },
+    key: string,
+    paint: (ctx: CanvasRenderingContext2D) => void,
+  ): HTMLCanvasElement | null {
+    if (typeof document === 'undefined') return null;
+    this.ctx ??= document.createElement('canvas').getContext('2d');
+    const ctx = this.ctx;
+    if (!ctx) return null;
+    const w = Math.max(1, Math.round(view.width * view.dpr));
+    const h = Math.max(1, Math.round(view.height * view.dpr));
+    const full = `${w}x${h}|${key}`;
+    if (full === this.key) return ctx.canvas;
+    if (ctx.canvas.width !== w || ctx.canvas.height !== h) {
+      ctx.canvas.width = w;
+      ctx.canvas.height = h;
+    }
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    ctx.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
+    paint(ctx);
+    this.key = full;
+    return ctx.canvas;
+  }
+}

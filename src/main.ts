@@ -93,8 +93,8 @@ const warmUp = () => {
     if (s) void prepare(s);
   }
 };
-if ('requestIdleCallback' in window) requestIdleCallback(warmUp, { timeout: 4000 });
-else setTimeout(warmUp, 2000);
+if ('requestIdleCallback' in window) requestIdleCallback(warmUp, { timeout: 1500 });
+else setTimeout(warmUp, 1500);
 const styleKeys = Object.fromEntries(
   STYLE_KEYS.map((id, i) => [String(i + 1), () => void switchStyle(id)]),
 );

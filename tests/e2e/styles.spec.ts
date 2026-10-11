@@ -27,6 +27,14 @@ test('paper is the default, and number keys switch styles with a crossfade', asy
     .toBeGreaterThan(before + 20);
   await page.screenshot({ path: 'test-results/style-switch.png' });
 
+  // Key 2 picks ink, with its own setup done while the page was idle or right then.
+  await page.keyboard.press('2');
+  await expect(page.locator('#status')).toContainText('Ink painting');
+  await expect(page).toHaveURL(/[?&]style=ink/);
+  expect(await page.evaluate(() => window.topotone?.style())).toBe('ink');
+  await page.waitForTimeout(800);
+  await page.screenshot({ path: 'test-results/style-ink.png' });
+
   // The world keeps moving through the switch.
   const t0 = await page.evaluate(() => window.topotone?.source().now ?? 0);
   await page.waitForTimeout(400);
