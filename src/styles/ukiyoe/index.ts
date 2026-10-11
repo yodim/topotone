@@ -18,7 +18,7 @@ import type { ChunkEnv, Style } from '../types';
 import { drawBlock, drawKeyline, drawSnow, drawStriations, drawWater, keylineWidth } from './land';
 import { buildLook } from './look';
 import { drawCut, type Cut } from './plants';
-import { drawAtmosphere, drawSky } from './sky';
+import { drawAtmosphere, drawSky, drawSkyStrip } from './sky';
 
 const ukiyoe: Style = {
   id: 'ukiyoe',
@@ -31,6 +31,7 @@ const ukiyoe: Style = {
   },
 
   drawSky,
+  drawSkyStrip,
   drawAtmosphere,
 
   drawLayerChunk(ctx, chunk, env: ChunkEnv) {

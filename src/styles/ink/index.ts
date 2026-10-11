@@ -7,7 +7,7 @@ import { objectsAround, ridgeAt, sampleRidge, waterAround } from '../shared/ridg
 import type { ChunkEnv, Style } from '../types';
 import { drawOutline, drawTexture, drawWash, drawWater, toneFor } from './land';
 import { buildLook } from './look';
-import { drawAtmosphere, drawOverlay, drawSky } from './sky';
+import { drawAtmosphere, drawOverlay, drawSky, drawSkyStrip } from './sky';
 import { drawMark, type Brush } from './trees';
 
 const ink: Style = {
@@ -21,6 +21,7 @@ const ink: Style = {
   },
 
   drawSky,
+  drawSkyStrip,
   drawAtmosphere,
   drawOverlay,
 

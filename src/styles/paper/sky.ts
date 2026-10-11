@@ -8,7 +8,7 @@ import type { SkyState } from '../../world/scene';
 import { ViewCache } from '../shared/canvas';
 import { alignedPattern } from '../shared/grain';
 import { css, mix, type Rgb } from '../shared/palette';
-import type { View } from '../types';
+import type { SkyStrip, View } from '../types';
 import { look } from './look';
 import { STORM, type Papers } from './palette';
 
@@ -49,7 +49,7 @@ const cache = new ViewCache();
 function skySheet(sky: SkyState, view: View): CanvasImageSource | null {
   const { papers } = look();
   const c = skyColors(papers, sky);
-  const sunAlpha = 1 - 0.75 * smoothstep(0.45, 0.95, sky.mood);
+  const sunAlpha = sunAlphaFor(sky);
   const sunY = Math.round(view.height * lerp(0.44, 0.16, sky.brightness));
   const q = (rgb: Rgb) => rgb.map((v) => Math.round(v / 2)).join(',');
   const key = [q(c.top), q(c.horizon), q(c.sun), sunY, Math.round(sunAlpha * 40), papers.name];
@@ -64,81 +64,148 @@ function paintSkySheet(
   view: View,
 ): void {
   const { width: w, height: h } = view;
-  const scale = h / 1080;
+  paintGradient(ctx, c, 0, w, h);
+  paintSun(ctx, c, sunAlpha, w * 0.7, sunY, h / 1080);
+  paintGrain(ctx, w, h);
+}
+
+/** The sky sheet's gradient over a stretch of the width. */
+function paintGradient(
+  ctx: CanvasRenderingContext2D,
+  c: SkyColors,
+  x: number,
+  w: number,
+  h: number,
+): void {
   const g = ctx.createLinearGradient(0, 0, 0, h * 0.62);
   g.addColorStop(0, css(c.top));
   g.addColorStop(1, css(c.horizon));
   ctx.fillStyle = g;
-  ctx.fillRect(0, 0, w, h);
+  ctx.fillRect(x, 0, w, h);
+}
 
-  // The sun: three rings of paper, lower and redder at dusk, hidden by a stormy sky.
-  if (sunAlpha > 0.02) {
-    const r = 46 * scale;
-    const x = w * 0.7;
-    ctx.globalAlpha = sunAlpha;
-    const rings: [number, number][] = [
-      [1.6, 0.7],
-      [1.28, 0.38],
-      [1, 0],
-    ];
-    for (const [k, fade] of rings) {
-      ctx.fillStyle = 'rgba(40, 30, 20, 0.08)';
-      ctx.beginPath();
-      ctx.arc(x + 1.5 * scale, sunY + 2.5 * scale, r * k, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = css(mix(c.sun, c.horizon, fade));
-      ctx.beginPath();
-      ctx.arc(x, sunY, r * k, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.globalAlpha = 1;
+/** The sun: three rings of paper, lower and redder at dusk, hidden by a stormy sky. */
+function paintSun(
+  ctx: CanvasRenderingContext2D,
+  c: SkyColors,
+  alpha: number,
+  x: number,
+  y: number,
+  scale: number,
+): void {
+  if (alpha <= 0.02) return;
+  const r = 46 * scale;
+  ctx.globalAlpha = alpha;
+  const rings: [number, number][] = [
+    [1.6, 0.7],
+    [1.28, 0.38],
+    [1, 0],
+  ];
+  for (const [k, fade] of rings) {
+    ctx.fillStyle = 'rgba(40, 30, 20, 0.08)';
+    ctx.beginPath();
+    ctx.arc(x + 1.5 * scale, y + 2.5 * scale, r * k, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = css(mix(c.sun, c.horizon, fade));
+    ctx.beginPath();
+    ctx.arc(x, y, r * k, 0, Math.PI * 2);
+    ctx.fill();
   }
+  ctx.globalAlpha = 1;
+}
 
+function paintGrain(ctx: CanvasRenderingContext2D, w: number, h: number): void {
   const { skyGrain } = look();
-  if (skyGrain) {
-    const pattern = alignedPattern(ctx, skyGrain, 0, 0);
-    if (pattern) {
-      ctx.fillStyle = pattern;
-      ctx.fillRect(0, 0, w, h);
-    }
-  }
+  if (!skyGrain) return;
+  const pattern = alignedPattern(ctx, skyGrain, 0, 0);
+  if (!pattern) return;
+  ctx.fillStyle = pattern;
+  ctx.fillRect(0, 0, w, h);
+}
+
+function sunAlphaFor(sky: SkyState): number {
+  return 1 - 0.75 * smoothstep(0.45, 0.95, sky.mood);
+}
+
+/**
+ * Cloud slot i, if the sky wants it: a cloud that is not wanted sinks behind the far
+ * mountains, like a prop on a stage, instead of fading: paper does not turn transparent.
+ * x is the cloud's centre.
+ */
+function paintCloud(
+  ctx: CanvasRenderingContext2D,
+  i: number,
+  x: number,
+  cloudiness: number,
+  h: number,
+): void {
+  const { clouds, seed } = look();
+  const keep = 0.08 + 0.62 * cloudiness;
+  const chance = hash01(seed, 'cloud', i);
+  const up = smoothstep(chance - 0.03, chance + 0.05, keep);
+  if (up <= 0) return;
+  const sprite = clouds[Math.floor(hash01(seed, 'cloud-shape', i) * clouds.length)];
+  if (!sprite) return;
+  const size = (h / 1080) * lerp(0.6, 1.15, hash01(seed, 'cloud-size', i));
+  const y = lerp(h * 0.5, h * lerp(0.04, 0.34, hash01(seed, 'cloud-y', i)), up);
+  const cw = sprite.width * size;
+  ctx.drawImage(sprite.canvas, x - cw / 2, y, cw, sprite.height * size);
 }
 
 export function drawSky(ctx: CanvasRenderingContext2D, sky: SkyState, view: View): void {
   const { width: w, height: h } = view;
-  const { clouds, seed } = look();
   const scale = h / 1080;
   const sheet = skySheet(sky, view);
   if (sheet) {
     ctx.drawImage(sheet, 0, 0, w, h);
   } else {
-    const c = skyColors(look().papers, sky);
-    paintSkySheet(ctx, c, 1, h * 0.3, view);
+    paintSkySheet(ctx, skyColors(look().papers, sky), 1, h * 0.3, view);
   }
 
   // Clouds: one slot every few seconds of a slow cloud time. Whether a slot holds a cloud
   // depends on cloudiness, so a dramatic stretch fills the sky.
-  if (clouds.length === 0) return;
+  if (look().clouds.length === 0) return;
   const pps = GROUND_PX_PER_SECOND * scale * CLOUD_PARALLAX;
   const t = view.now + CLOUD_DRIFT * view.clock;
   const first = Math.floor((t - w / pps) / CLOUD_SPACING) - 1;
   const last = Math.ceil((t + w / pps) / CLOUD_SPACING) + 1;
-  const keep = 0.08 + 0.62 * sky.cloudiness;
   for (let i = first; i <= last; i++) {
-    // A cloud that is not wanted sinks behind the far mountains, like a prop on a stage,
-    // instead of fading: paper does not turn transparent.
-    const chance = hash01(seed, 'cloud', i);
-    const up = smoothstep(chance - 0.03, chance + 0.05, keep);
-    if (up <= 0) continue;
-    const sprite = clouds[Math.floor(hash01(seed, 'cloud-shape', i) * clouds.length)];
-    if (!sprite) continue;
-    const size = scale * lerp(0.6, 1.15, hash01(seed, 'cloud-size', i));
-    const ct = (i + hash01(seed, 'cloud-at', i) * 0.8) * CLOUD_SPACING;
+    const ct = (i + hash01(look().seed, 'cloud-at', i) * 0.8) * CLOUD_SPACING;
     const x = w * 0.5 + (ct - t) * pps;
-    const y = lerp(h * 0.5, h * lerp(0.04, 0.34, hash01(seed, 'cloud-y', i)), up);
-    const cw = sprite.width * size;
-    if (x + cw < 0 || x - cw > w) continue;
-    ctx.drawImage(sprite.canvas, x - cw / 2, y, cw, sprite.height * size);
+    if (x < -300 * scale || x > w + 300 * scale) continue;
+    paintCloud(ctx, i, x, sky.cloudiness, h);
+  }
+}
+
+/**
+ * The panorama's sky: the gradient follows the sky along the strip in narrow slices, one
+ * sun, and clouds spaced as they appear on screen, each wanted or not by the sky above it.
+ */
+export function drawSkyStrip(ctx: CanvasRenderingContext2D, strip: SkyStrip): void {
+  const { width: w, height: h, scale } = strip;
+  const { papers } = look();
+  const at = (x: number) => strip.skyAt(strip.t0 + x / strip.pxPerSecond);
+  const slice = 16;
+  for (let x = 0; x < w; x += slice)
+    paintGradient(ctx, skyColors(papers, at(x + slice / 2)), x, slice, h);
+  const sx = w * 0.7;
+  const sun = at(sx);
+  paintSun(
+    ctx,
+    skyColors(papers, sun),
+    sunAlphaFor(sun),
+    sx,
+    h * lerp(0.44, 0.16, sun.brightness),
+    scale,
+  );
+  paintGrain(ctx, w, h);
+
+  // Slots anchored to music time, so two exports of overlapping stretches share clouds.
+  const spacing = CLOUD_SPACING * GROUND_PX_PER_SECOND * CLOUD_PARALLAX * scale;
+  const start = strip.t0 * strip.pxPerSecond;
+  for (let i = Math.floor(start / spacing) - 2; (i - 2) * spacing < start + w; i++) {
+    const x = (i + 0.8 * hash01(look().seed, 'cloud-at', i)) * spacing - start;
+    paintCloud(ctx, i, x, at(Math.min(w, Math.max(0, x))).cloudiness, h);
   }
 }
 

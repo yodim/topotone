@@ -12,6 +12,7 @@ It is early days. With no sound, the world is driven by a seeded synthetic sourc
 - On a phone, use the Song and Mic buttons in the corner.
 - Drop a song anywhere on the page, or press `O` to pick one. It is analyzed first, then played. `Space` pauses and resumes.
 - Press `M` to listen to the microphone. New land grows at the right as it is heard. `M` again hands back to the landscape's own music.
+- Press `E`, or the Export button, to save a panorama as a PNG: the whole song, the mic session so far, or the last stretch of the landscape. Every layer is laid out at the same speed, so the image reads from left to right like the music. A caption strip with the title, seed, style and date is optional.
 - Press `D` to show the feature meters, the playhead and the frame rate.
 - Add `?tune` to the address to open the tuning panel: one slider per mapping value. Changes rebuild the land and are kept in your browser; `Copy JSON` gives the values you changed, and `T` hides the panel.
 

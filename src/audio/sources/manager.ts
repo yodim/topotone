@@ -29,6 +29,16 @@ export interface Song extends FeatureSource {
   knownUntil?(): number;
 }
 
+/** A stretch of the timeline that one song or one mic session filled. */
+export interface Session {
+  kind: FeatureSourceKind;
+  /** The song's name; null for the mic. */
+  name: string | null;
+  /** World time it starts and ends. A mic session still running ends at its live edge. */
+  start: number;
+  end: number;
+}
+
 interface Segment {
   start: number;
   end: number;
@@ -131,6 +141,29 @@ export class SourceManager implements FeatureSource {
     this.cut();
     this.segments.push({ start: this.freeTime, end: Infinity, song: null });
     this.onTimelineChange?.();
+  }
+
+  /**
+   * The latest song (in full, even the part still to come) or mic session (up to its live
+   * edge, or to where it stopped). Null when there was neither: only free time so far.
+   */
+  latestSession(): Session | null {
+    for (let i = this.segments.length - 1; i >= 0; i--) {
+      const seg = this.segments[i];
+      const song = seg?.song;
+      if (!seg || !song) continue;
+      if (song.kind === 'mic') {
+        const end = this.current?.song === song ? this.liveUntil() : seg.end;
+        return { kind: 'mic', name: null, start: seg.start, end };
+      }
+      return {
+        kind: song.kind,
+        name: song.name,
+        start: seg.start,
+        end: Math.min(seg.end, seg.start + song.duration),
+      };
+    }
+    return null;
   }
 
   /** Pauses or resumes. Returns false when the current source cannot pause (the mic). */

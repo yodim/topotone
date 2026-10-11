@@ -9,14 +9,22 @@ import type { SkyState } from '../../world/scene';
 import { ViewCache } from '../shared/canvas';
 import { alignedPattern } from '../shared/grain';
 import { css, mix } from '../shared/palette';
-import type { View } from '../types';
+import type { SkyStrip, View } from '../types';
 import { INK, PAPER, SEAL_SIZE, VERMILION, look } from './look';
 
 const cache = new ViewCache();
 
+function washFor(sky: SkyState): number {
+  return clamp01(0.15 * sky.cloudiness + 0.35 * sky.mood);
+}
+
+function duskFor(sky: SkyState): number {
+  return 1 - smoothstep(0.25, 0.6, sky.brightness);
+}
+
 export function drawSky(ctx: CanvasRenderingContext2D, sky: SkyState, view: View): void {
-  const wash = Math.round(40 * clamp01(0.15 * sky.cloudiness + 0.35 * sky.mood));
-  const dusk = Math.round(40 * (1 - smoothstep(0.25, 0.6, sky.brightness)));
+  const wash = Math.round(40 * washFor(sky));
+  const dusk = Math.round(40 * duskFor(sky));
   const sunY = Math.round(view.height * lerp(0.42, 0.2, sky.brightness));
   const sheet = cache.get(view, `${wash}|${dusk}|${sunY}`, (c) =>
     paintPaper(c, view, wash / 40, dusk / 40, sunY),
@@ -35,35 +43,53 @@ function paintPaper(
   const { width: w, height: h } = view;
   ctx.fillStyle = css(PAPER);
   ctx.fillRect(0, 0, w, h);
+  paintWash(ctx, 0, w, h, wash);
+  paintSun(ctx, w * 0.72, sunY, h, dusk);
+  paintFibers(ctx, w, h);
+}
 
-  // A grey wash brushed across the top, deeper in dramatic passages.
-  if (wash > 0.01) {
-    const g = ctx.createLinearGradient(0, 0, 0, h * 0.5);
-    g.addColorStop(0, css(INK, 0.32 * wash));
-    g.addColorStop(1, css(INK, 0));
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, w, h * 0.5);
-  }
+/** A grey wash brushed across the top, deeper in dramatic passages. */
+function paintWash(ctx: CanvasRenderingContext2D, x: number, w: number, h: number, wash: number) {
+  if (wash <= 0.01) return;
+  const g = ctx.createLinearGradient(0, 0, 0, h * 0.5);
+  g.addColorStop(0, css(INK, 0.32 * wash));
+  g.addColorStop(1, css(INK, 0));
+  ctx.fillStyle = g;
+  ctx.fillRect(x, 0, w, h * 0.5);
+}
 
-  // At dusk, a pale vermilion sun, soft at the edge like ink on damp paper.
-  if (dusk > 0.01) {
-    const r = 40 * (h / 1080);
-    const x = w * 0.72;
-    const g = ctx.createRadialGradient(x, sunY, r * 0.7, x, sunY, r * 1.08);
-    g.addColorStop(0, css(mix(VERMILION, PAPER, 0.35), 0.75 * dusk));
-    g.addColorStop(1, css(mix(VERMILION, PAPER, 0.35), 0));
-    ctx.fillStyle = g;
-    ctx.fillRect(x - 2 * r, sunY - 2 * r, 4 * r, 4 * r);
-  }
+/** At dusk, a pale vermilion sun, soft at the edge like ink on damp paper. */
+function paintSun(ctx: CanvasRenderingContext2D, x: number, y: number, h: number, dusk: number) {
+  if (dusk <= 0.01) return;
+  const r = 40 * (h / 1080);
+  const g = ctx.createRadialGradient(x, y, r * 0.7, x, y, r * 1.08);
+  g.addColorStop(0, css(mix(VERMILION, PAPER, 0.35), 0.75 * dusk));
+  g.addColorStop(1, css(mix(VERMILION, PAPER, 0.35), 0));
+  ctx.fillStyle = g;
+  ctx.fillRect(x - 2 * r, y - 2 * r, 4 * r, 4 * r);
+}
 
+function paintFibers(ctx: CanvasRenderingContext2D, w: number, h: number) {
   const { fibers } = look();
-  if (fibers) {
-    const pattern = alignedPattern(ctx, fibers, 0, 0);
-    if (pattern) {
-      ctx.fillStyle = pattern;
-      ctx.fillRect(0, 0, w, h);
-    }
-  }
+  if (!fibers) return;
+  const pattern = alignedPattern(ctx, fibers, 0, 0);
+  if (!pattern) return;
+  ctx.fillStyle = pattern;
+  ctx.fillRect(0, 0, w, h);
+}
+
+/** The panorama's sky: the wash follows the mood along the strip, with one sun at most. */
+export function drawSkyStrip(ctx: CanvasRenderingContext2D, strip: SkyStrip): void {
+  const { width: w, height: h } = strip;
+  const at = (x: number) => strip.skyAt(strip.t0 + x / strip.pxPerSecond);
+  ctx.fillStyle = css(PAPER);
+  ctx.fillRect(0, 0, w, h);
+  const slice = 16;
+  for (let x = 0; x < w; x += slice) paintWash(ctx, x, slice, h, washFor(at(x + slice / 2)));
+  const sx = w * 0.72;
+  const sun = at(sx);
+  paintSun(ctx, sx, h * lerp(0.42, 0.2, sun.brightness), h, duskFor(sun));
+  paintFibers(ctx, w, h);
 }
 
 /** Mist drifts at this many CSS pixels per second of animation, at a 1080 px view. */

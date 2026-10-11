@@ -73,6 +73,26 @@ export interface ChunkEnv {
   toY(h: number): number;
 }
 
+/**
+ * A long stretch of sky, for the panorama export. x runs along music time: music time t sits
+ * at x = (t - t0) * pxPerSecond. The sky changes along the strip, so read it with skyAt.
+ */
+export interface SkyStrip {
+  /** Strip size in CSS pixels. */
+  width: number;
+  height: number;
+  /** Device pixel ratio of the target canvas. */
+  dpr: number;
+  /** Size multiplier: 1 for a 1080 px tall strip. */
+  scale: number;
+  /** Music time at x = 0. */
+  t0: number;
+  /** CSS pixels per second of music along the strip. */
+  pxPerSecond: number;
+  /** The sky at music time t. */
+  skyAt(t: number): SkyState;
+}
+
 export interface Style {
   /** Folder name, used in ?style=. */
   id: string;
@@ -83,6 +103,12 @@ export interface Style {
   setup?(env: StyleEnv): void | Promise<void>;
   /** Every frame. Keep it cheap. */
   drawSky(ctx: CanvasRenderingContext2D, sky: SkyState, view: View): void;
+  /**
+   * Optional, once per panorama export: the sky behind the whole image. Let it follow skyAt
+   * along the strip, and place the sun and clouds once. Without it, the export draws
+   * drawSky in overlapping tiles and blends them.
+   */
+  drawSkyStrip?(ctx: CanvasRenderingContext2D, strip: SkyStrip): void;
   /** Once per layer chunk. The engine caches the result and clips it to the chunk bounds. */
   drawLayerChunk(ctx: CanvasRenderingContext2D, chunk: LayerChunk, env: ChunkEnv): void;
   /** Optional, every frame, after each layer: haze or mist between depths. */

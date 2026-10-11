@@ -45,6 +45,20 @@ const template: Style = {
     ctx.fillRect(0, 0, view.width, view.height);
   },
 
+  // Optional, for the panorama export: the sky behind the whole image. It may be thousands
+  // of pixels wide; read the sky along it with strip.skyAt. Here: the same gradient in
+  // narrow slices, each with the sky above it. Without this hook, drawSky is used in tiles.
+  drawSkyStrip(ctx, strip) {
+    for (let x = 0; x < strip.width; x += 16) {
+      const sky = strip.skyAt(strip.t0 + (x + 8) / strip.pxPerSecond);
+      const g = ctx.createLinearGradient(0, 0, 0, strip.height * 0.6);
+      g.addColorStop(0, css(mix(SKY_TOP, SKY_LOW, 1 - sky.brightness)));
+      g.addColorStop(1, css(SKY_LOW));
+      ctx.fillStyle = g;
+      ctx.fillRect(x, 0, 16, strip.height);
+    }
+  },
+
   // Runs once per chunk; the engine caches the result. Heavy work belongs here.
   // Rule: draw in CSS pixels and multiply sizes by env.scale.
   drawLayerChunk(ctx, chunk, env: ChunkEnv) {
