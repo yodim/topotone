@@ -5,6 +5,7 @@
 import { clamp01, lerp, smoothstep } from '../../core/math';
 import { hash01 } from '../../core/rng';
 import type { SkyState } from '../../world/scene';
+import { ViewCache } from '../shared/canvas';
 import { alignedPattern } from '../shared/grain';
 import { css, mix, type Rgb } from '../shared/palette';
 import type { View } from '../types';
@@ -43,47 +44,16 @@ const GROUND_PX_PER_SECOND = 64;
  * The sky sheet (gradient, sun and grain) is drawn into its own canvas and reused until its
  * colors or the sun move by a visible step. Per frame that leaves one copy and the clouds.
  */
-let cache: { ctx: CanvasRenderingContext2D; key: string } | null = null;
+const cache = new ViewCache();
 
-function skySheet(
-  ctx: CanvasRenderingContext2D,
-  sky: SkyState,
-  view: View,
-): CanvasImageSource | null {
-  if (typeof document === 'undefined') return null;
+function skySheet(sky: SkyState, view: View): CanvasImageSource | null {
   const { papers } = look();
   const c = skyColors(papers, sky);
   const sunAlpha = 1 - 0.75 * smoothstep(0.45, 0.95, sky.mood);
   const sunY = Math.round(view.height * lerp(0.44, 0.16, sky.brightness));
   const q = (rgb: Rgb) => rgb.map((v) => Math.round(v / 2)).join(',');
-  const key = [
-    view.width,
-    view.height,
-    view.dpr,
-    q(c.top),
-    q(c.horizon),
-    q(c.sun),
-    sunY,
-    Math.round(sunAlpha * 40),
-    papers.name,
-  ].join('|');
-  if (cache?.key === key) return cache.ctx.canvas;
-  if (!cache) {
-    const target = document.createElement('canvas').getContext('2d');
-    if (!target) return null;
-    cache = { ctx: target, key: '' };
-  }
-  const target = cache.ctx;
-  const pw = Math.round(view.width * view.dpr);
-  const ph = Math.round(view.height * view.dpr);
-  if (target.canvas.width !== pw || target.canvas.height !== ph) {
-    target.canvas.width = pw;
-    target.canvas.height = ph;
-  }
-  target.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
-  paintSkySheet(target, c, sunAlpha, sunY, view);
-  cache.key = key;
-  return target.canvas;
+  const key = [q(c.top), q(c.horizon), q(c.sun), sunY, Math.round(sunAlpha * 40), papers.name];
+  return cache.get(view, key.join('|'), (ctx) => paintSkySheet(ctx, c, sunAlpha, sunY, view));
 }
 
 function paintSkySheet(
@@ -138,7 +108,7 @@ export function drawSky(ctx: CanvasRenderingContext2D, sky: SkyState, view: View
   const { width: w, height: h } = view;
   const { clouds, seed } = look();
   const scale = h / 1080;
-  const sheet = skySheet(ctx, sky, view);
+  const sheet = skySheet(sky, view);
   if (sheet) {
     ctx.drawImage(sheet, 0, 0, w, h);
   } else {
@@ -187,12 +157,15 @@ export function drawAtmosphere(
   const c = skyColors(papers, sky);
   const alpha = (0.02 + 0.3 * sky.mist * sky.mist) * (1 - 0.5 * depth);
   if (alpha < 0.01) return;
-  // Roughly where each layer's land meets its lowest point on screen.
+  // Roughly where each layer's land meets its lowest point on screen. The veil is a band
+  // around it, so only part of the screen is filled each frame.
   const foot = view.height * (0.57 + 0.38 * depth);
   const from = foot - view.height * 0.26;
-  const g = ctx.createLinearGradient(0, from, 0, foot);
+  const to = foot + view.height * 0.12;
+  const g = ctx.createLinearGradient(0, from, 0, to);
   g.addColorStop(0, css(c.horizon, 0));
-  g.addColorStop(1, css(c.horizon, alpha));
+  g.addColorStop(0.68, css(c.horizon, alpha));
+  g.addColorStop(1, css(c.horizon, 0));
   ctx.fillStyle = g;
-  ctx.fillRect(0, from, view.width, view.height - from);
+  ctx.fillRect(0, from, view.width, to - from);
 }
