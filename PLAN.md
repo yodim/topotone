@@ -134,6 +134,8 @@ export interface Style {
   setup?(env: StyleEnv): void | Promise<void>;
   /** Every frame. Keep it cheap. */
   drawSky(ctx: CanvasRenderingContext2D, sky: SkyState, view: View): void;
+  /** Optional, once per panorama export: the sky behind the whole image. */
+  drawSkyStrip?(ctx: CanvasRenderingContext2D, strip: SkyStrip): void;
   /** Once per layer chunk. The engine caches the result and clips it to the chunk bounds. */
   drawLayerChunk(ctx: CanvasRenderingContext2D, chunk: LayerChunk, env: ChunkEnv): void;
   /** Optional, every frame, after each layer: haze or mist between depths. */
@@ -153,6 +155,16 @@ export interface View {
   dpr: number;
   now: number; // music time at the playhead
   clock: number; // animation time from the engine, for drifting effects
+}
+
+export interface SkyStrip {
+  width: number; // CSS pixels
+  height: number;
+  dpr: number;
+  scale: number; // 1 for a 1080 px tall strip
+  t0: number; // music time at x = 0
+  pxPerSecond: number; // music time t sits at x = (t - t0) * pxPerSecond
+  skyAt(t: number): SkyState;
 }
 
 export interface ChunkEnv {
@@ -190,6 +202,10 @@ Phase 4:
 
 - `ChunkEnv.pxPerSecond` added: the layer's speed in CSS pixels per second of music. Styles used to work it out from two `toX` calls.
 - Style rule, made explicit: anything that continues across a chunk edge (a cut or brushed outline, a wave, a grain pattern) is a function of music time, through the noise helpers in `styles/shared/`, with a seed that does not change from chunk to chunk. `env.rng` is for texture that stays inside the chunk, drawn in a fixed order so a redrawn chunk matches the cached one.
+
+Phase 5:
+
+- `Style.drawSkyStrip` added, optional, with `SkyStrip`: the panorama export draws the sky behind the whole image once, reading the sky along it with `skyAt`, so the sun and clouds are placed once instead of in every tile. Styles without it get `drawSky` in overlapping, blended tiles.
 
 ## Phases
 
@@ -366,12 +382,22 @@ Follow-up after 4c:
 
 ### Phase 5: Panorama export
 
-- [ ] Rebuild every chunk from the stored feature history (whole song in file mode, session so far in mic and fallback modes) and render it into one long image at a chosen height (1080 px by default)
-- [ ] Respect canvas limits: keep the width at or under 16384 px (safe for Safari) by adjusting pixels per second, and tell the user when the image was compressed horizontally
-- [ ] Optional caption strip: song name (editable), seed, style, date
-- [ ] Download as PNG with `toBlob`, with a progress indicator and no frozen UI
+- [x] Rebuild every chunk from the stored feature history (whole song in file mode, session so far in mic and fallback modes) and render it into one long image at a chosen height (1080 px by default)
+- [x] Respect canvas limits: keep the width at or under 16384 px (safe for Safari) by adjusting pixels per second, and tell the user when the image was compressed horizontally
+- [x] Optional caption strip: song name (editable), seed, style, date
+- [x] Download as PNG with `toBlob`, with a progress indicator and no frozen UI
 
 **Done when:** a 4 minute song exports in under about 10 seconds, and a short fixture exported as a panorama matches the live view for the same stretch (pixel comparison test).
+
+Notes from Phase 5:
+
+- Layout: every layer moves at the ground layer's speed (64 px per second at 1080 px), so each column of the image is one moment of the music in every layer. The far ranges come out wider and smoother than on screen, and the melody shapes them along the whole image. The other choice, one very wide camera with the live parallax, would have filled most of the far ranges with music from before and after the song.
+- What E exports: the latest song in full (even the part still to come), or the latest mic session up to its live edge, or else the last stretch of the landscape's own music (at least 20 s). Mic sessions and free time are capped at their last 10 minutes. A mic session is rebuilt with windows that look back only, as it was built live.
+- Every chunk is rebuilt from the stored features in a fresh world and drawn through `render/chunk.ts`, the same function the live renderer uses. `drawAtmosphere`, and `drawSky` for a style without `drawSkyStrip`, run in tiles the width of a live view that overlap by a quarter: each tile uses the sky of its own stretch, and the overlaps are summed with `lighter` before they are laid on the image, so mist stays even across tiles. `drawOverlay` runs once over the whole image.
+- Canvas limits: the width stays at or under 16384 px and the area at or under 16,777,216 px (Safari on iOS). A stretch too long for that is squeezed: the speed drops to a whole number of pixels per chunk, and the status line says by how much. A 4 minute song fits at full speed; with the caption strip it is squeezed to 96%.
+- The work runs in steps of about 24 ms with a pause between them, so the live view keeps moving, and progress shows in the status line. A 4 minute song takes about 9 s from Export to the download in headless software rendering, PNG encoding included (about 4 s of drawing).
+- The pixel test compares the bottom rows of a live frame at 1920 by 1080, where only the ground layer shows, with the same stretch of a panorama: the closest match must be within a pixel of no shift, nearly equal, and far closer than a shifted one. Only the ground layer can match, since the other layers move at other speeds on screen.
+- The caption strip (off by default) holds the title (the song's name by default, editable), the seed, the style and the date.
 
 ### Phase 6: Interface and polish
 
