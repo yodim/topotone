@@ -15,6 +15,8 @@ export class LayerStrip {
   private readonly filled: Uint8Array;
   private first = 0;
   private empty = true;
+  /** False when the last ensure() ran out of budget before every chunk was drawn. */
+  complete = true;
 
   constructor(
     readonly slots: number,
@@ -37,13 +39,21 @@ export class LayerStrip {
     return this.first;
   }
 
-  /** Makes sure chunks first..last are in the strip, rendering the missing ones. */
-  ensure(first: number, last: number, render: RenderSlot): number {
+  /**
+   * Makes sure chunks first..last are in the strip, rendering the missing ones. With a
+   * budget, rendering stops once it returns false, and `complete` says whether all got drawn.
+   */
+  ensure(first: number, last: number, render: RenderSlot, budget?: () => boolean): number {
     if (last - first + 1 > this.slots) throw new Error('strip too small for the view');
     if (this.empty || first !== this.first) this.shiftTo(first);
     let rendered = 0;
+    this.complete = true;
     for (let i = 0; i <= last - first; i++) {
       if (this.filled[i]) continue;
+      if (budget && !budget()) {
+        this.complete = false;
+        return rendered;
+      }
       const x = i * this.chunkPx;
       this.ctx.clearRect(x, 0, this.chunkPx, this.heightPx);
       render(this.ctx, first + i, x);
@@ -57,11 +67,6 @@ export class LayerStrip {
   invalidateSlot(index: number): void {
     const i = index - this.first;
     if (!this.empty && i >= 0 && i < this.slots) this.filled[i] = 0;
-  }
-
-  /** Forgets every chunk, for example after a style change. */
-  invalidate(): void {
-    this.empty = true;
   }
 
   private shiftTo(first: number): void {

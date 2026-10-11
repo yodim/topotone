@@ -5,6 +5,8 @@ declare global {
     /** Seed and live stats. Handy in the console, and used by the end-to-end tests. */
     topotone?: {
       seed: number;
+      /** Id of the style on screen. */
+      style: () => string;
       stats: () => Record<string, number>;
       source: () => {
         kind: string;

@@ -4,7 +4,7 @@
  */
 import type { Style } from './types';
 
-export const DEFAULT_STYLE = 'debug';
+export const DEFAULT_STYLE = 'paper';
 
 const modules = import.meta.glob<{ default: Style }>('./*/index.ts', { eager: true });
 

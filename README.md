@@ -2,13 +2,13 @@
 
 Topotone turns sound into landscape. A song, a microphone or a seeded random source drives a procedural world that scrolls from right to left. Melody raises mountains, beats plant trees, bass carves rivers. The same world can be drawn in several art styles.
 
-It is early days. With no sound, the world is driven by a seeded synthetic source that behaves like music. Drop a song, or turn on the microphone, and the world follows it. Everything is drawn in a debug wireframe style for now. See [PLAN.md](PLAN.md) for where it is heading.
+It is early days. With no sound, the world is driven by a seeded synthetic source that behaves like music. Drop a song, or turn on the microphone, and the world follows it. It is drawn as a paper cutout; more styles are on the way. See [PLAN.md](PLAN.md) for where it is heading.
 
 ## Trying it
 
 - `?seed=river` picks a world. Any text or number works, and the same seed always gives the same world. Without one, a random seed is chosen and written into the address bar.
 - `?speed=4` runs the music faster (from 0.05 to 50).
-- `?style=debug` picks a style. Debug is the only one so far.
+- Keys `1`, `2` and `3` switch between the paper cutout, ink and ukiyo-e styles, with a short crossfade. `?style=paper` picks one from the address, and `?style=debug` shows the wireframe used for development.
 - On a phone, use the Song and Mic buttons in the corner.
 - Drop a song anywhere on the page, or press `O` to pick one. It is analyzed first, then played. `Space` pauses and resumes.
 - Press `M` to listen to the microphone. New land grows at the right as it is heard. `M` again hands back to the landscape's own music.
@@ -46,7 +46,7 @@ tests/                    unit tests, e2e/ smoke test, fixtures/ (code-generated
 docs/screenshots/
 ```
 
-Files that are still stubs name the phase they arrive in.
+Files that are still stubs name the phase they arrive in. To make a style of your own, start from `src/styles/_template/`.
 
 ## Running it locally
 

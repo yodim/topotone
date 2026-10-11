@@ -84,8 +84,10 @@ describe('World', () => {
   });
 
   it('produces a varied world from the synthetic source', () => {
-    const chunks = firstMinute(world(1)).concat(
-      LAYERS.flatMap((_, l) => Array.from({ length: 60 }, (_, i) => world(1).chunk(l, i + 15))),
+    // One world for every chunk: a fresh world per chunk would rebuild its features each time.
+    const w = world(1);
+    const chunks = firstMinute(w).concat(
+      LAYERS.flatMap((_, l) => Array.from({ length: 60 }, (_, i) => w.chunk(l, i + 15))),
     );
     const kinds = new Set(chunks.flatMap((c) => c.objects.map((o) => o.kind)));
     expect(kinds).toContain('grass');

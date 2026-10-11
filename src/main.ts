@@ -11,7 +11,8 @@ import { SourceManager } from './audio/sources/manager';
 import { SyntheticSource } from './audio/sources/synthetic';
 import { randomSeed } from './core/rng';
 import { MAX_DPR, Renderer, startLoop } from './render/engine';
-import { resolveStyle } from './styles/registry';
+import { STYLES, resolveStyle } from './styles/registry';
+import type { Style } from './styles/types';
 import { World } from './world/generator';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#stage');
@@ -41,7 +42,14 @@ const status = new Status(statusEl);
 const synthetic: SyntheticSource = new SyntheticSource(seed, (): number => manager.now());
 const manager: SourceManager = new SourceManager(synthetic, params.speed);
 const world = new World(seed, manager, () => manager.liveUntil());
-await style.setup?.({ seed, dpr: Math.min(window.devicePixelRatio || 1, MAX_DPR) });
+// Each style is set up once, the first time it is used.
+const ready = new Set<Style>();
+const prepare = async (s: Style) => {
+  if (ready.has(s)) return;
+  ready.add(s);
+  await s.setup?.({ seed, dpr: Math.min(window.devicePixelRatio || 1, MAX_DPR) });
+};
+await prepare(style);
 const renderer = new Renderer(world, style);
 const meters = new Meters(manager, seed);
 
@@ -59,10 +67,43 @@ const controls = bindControls(controlsEl, {
   mic: () => void mic.toggle(),
 });
 
+// Keys 1 to 3 pick a style. The land is redrawn and the old style fades out over it.
+const STYLE_KEYS = ['paper', 'ink', 'ukiyoe'];
+let currentStyle = style;
+const switchStyle = async (id: string) => {
+  const next = STYLES.get(id);
+  if (!next) {
+    status.show(`There is no ${id} style yet.`);
+    return;
+  }
+  if (next === currentStyle) return;
+  currentStyle = next;
+  await prepare(next);
+  if (currentStyle !== next) return;
+  renderer.setStyle(next);
+  status.show(next.name);
+  const url = new URL(location.href);
+  url.searchParams.set('style', next.id);
+  history.replaceState(null, '', url);
+};
+// Set up the other styles while the page is idle, so the first switch to each is instant.
+const warmUp = () => {
+  for (const id of STYLE_KEYS) {
+    const s = STYLES.get(id);
+    if (s) void prepare(s);
+  }
+};
+if ('requestIdleCallback' in window) requestIdleCallback(warmUp, { timeout: 4000 });
+else setTimeout(warmUp, 2000);
+const styleKeys = Object.fromEntries(
+  STYLE_KEYS.map((id, i) => [String(i + 1), () => void switchStyle(id)]),
+);
+
 const songs = new SongLoader(status, (song) => manager.playSong(song));
 bindFiles(fileInput, (file) => void songs.load(file));
 
 bindKeys({
+  ...styleKeys,
   d: () => meters.toggle(),
   t: () => tune?.toggle(),
   o: () => fileInput.click(),
@@ -95,6 +136,7 @@ startLoop(canvas, (ctx, frame) => {
 
 window.topotone = {
   seed,
+  style: () => currentStyle.id,
   stats: () => ({ now: manager.now(), fps: meters.fps, ...world.stats(), ...renderer.stats() }),
   source: () => ({
     kind: manager.kind,

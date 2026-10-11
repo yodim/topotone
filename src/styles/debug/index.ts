@@ -100,8 +100,7 @@ const debug: Style = {
   drawLayerChunk(ctx, chunk, env: ChunkEnv) {
     const { neighbors, scale } = env;
     const start = chunkStart(chunk.index);
-    // toX is linear, so two points give the scale and the time at the left edge.
-    const pxPerSecond = env.toX(start + 1) - env.toX(start);
+    const { pxPerSecond } = env;
     const t0 = start - env.toX(start) / pxPerSecond;
     const k = scale * (0.5 + 0.5 * chunk.depth);
 
