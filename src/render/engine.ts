@@ -6,11 +6,11 @@
  * chunk scrolls into view, never every frame.
  */
 import { smoothstep } from '../core/math';
-import { createRng, hashSeed } from '../core/rng';
-import type { ChunkEnv, Style, View } from '../styles/types';
+import type { Style, View } from '../styles/types';
 import { isProgressive, type World } from '../world/generator';
 import { CHUNK_SECONDS, LAYERS, chunkIndexAt, chunkStart, type SkyState } from '../world/scene';
 import { projectLayer, screenX, timeAtX, viewScale, type LayerProjection } from './camera';
+import { paintChunk } from './chunk';
 import { LayerStrip } from './strip';
 
 /** Device pixel ratio cap. Higher ratios cost a lot of fill rate for little visible gain. */
@@ -419,30 +419,10 @@ export class Renderer {
   ): void {
     const started = performance.now();
     const world = this.world;
-    const chunk = world.chunk(layer, index);
     const start = chunkStart(index);
     const dpr = this.dpr;
-    const widthPx = p.chunkPx + 2 * p.bleedPx;
-    const env: ChunkEnv = {
-      rng: createRng(hashSeed(chunk.seed, this.style.id)),
-      sky: world.skyAt(start),
-      neighbors: { prev: world.chunk(layer, index - 1), next: world.chunk(layer, index + 1) },
-      width: widthPx / dpr,
-      height: p.height,
-      bleed: p.bleed,
-      scale: this.scale,
-      pxPerSecond: p.pxPerSecond,
-      toX: (t) => p.bleed + (t - start) * p.pxPerSecond,
-      toY: p.toY,
-    };
-
     const c = this.chunkScratch;
-    c.setTransform(1, 0, 0, 1, 0, 0);
-    c.clearRect(0, 0, widthPx, p.heightPx);
-    c.save();
-    c.setTransform(dpr, 0, 0, dpr, 0, 0);
-    this.style.drawLayerChunk(c, chunk, env);
-    c.restore();
+    paintChunk(c, this.style, world, layer, index, p, this.scale, dpr);
     // Only the chunk itself is copied: this is where the bleed gets clipped away. A chunk
     // still waiting for live features is copied only up to the live time.
     let width = p.chunkPx;

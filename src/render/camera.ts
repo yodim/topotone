@@ -63,15 +63,38 @@ export function projectLayer(spec: LayerSpec, surface: Surface): LayerProjection
   const scale = viewScale(cssHeight);
   const ideal = BASE_PX_PER_SECOND * scale * parallax(spec.depth);
   const chunkPx = Math.max(1, Math.round(CHUNK_SECONDS * ideal * dpr));
+  return frameLayer(spec, cssHeight, dpr, chunkPx);
+}
+
+/**
+ * The panorama export: every layer moves at the same speed, so each column of the image is
+ * one moment of the music in every layer. chunkPx is the same for all layers.
+ */
+export function projectPanoramaLayer(
+  spec: LayerSpec,
+  height: number,
+  chunkPx: number,
+): LayerProjection {
+  return frameLayer(spec, height, 1, chunkPx);
+}
+
+/** A layer's projection for a view of this height, given how wide a chunk is. */
+function frameLayer(
+  spec: LayerSpec,
+  cssHeight: number,
+  dpr: number,
+  chunkPx: number,
+): LayerProjection {
+  const scale = viewScale(cssHeight);
   const pxPerSecond = chunkPx / dpr / CHUNK_SECONDS;
   const bleedPx = Math.min(Math.round(BLEED_PX * scale * dpr), chunkPx);
-
   const frame = LAYER_FRAMES[spec.role];
+  const fullPx = Math.max(1, Math.round(cssHeight * dpr));
   const topPx = Math.max(
     0,
     Math.floor((frame.base - frame.range - frame.headroom) * cssHeight * dpr),
   );
-  const heightPx = Math.max(1, surface.height - topPx);
+  const heightPx = Math.max(1, fullPx - topPx);
   const top = topPx / dpr;
   return {
     chunkPx,
