@@ -145,6 +145,69 @@
         text-align: right;
         font-variant-numeric: tabular-nums;
       }
+      #export {
+        position: fixed;
+        right: 16px;
+        bottom: 76px;
+        width: min(300px, calc(100% - 32px));
+        box-sizing: border-box;
+        padding: 14px;
+        border-radius: 8px;
+        font:
+          13px/1.4 system-ui,
+          sans-serif;
+        color: #2a2f36;
+        background: rgba(255, 255, 255, 0.96);
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+      }
+      #export[hidden] {
+        display: none;
+      }
+      #export strong {
+        font-size: 14px;
+      }
+      #export p {
+        margin: 6px 0 10px;
+        color: #5b636e;
+      }
+      #export label {
+        display: grid;
+        grid-template-columns: 56px 1fr;
+        gap: 8px;
+        align-items: center;
+        margin: 6px 0;
+      }
+      #export label.check {
+        display: flex;
+      }
+      #export select,
+      #export input[type='text'] {
+        font: inherit;
+        padding: 4px 6px;
+        border: 1px solid rgba(42, 47, 54, 0.25);
+        border-radius: 4px;
+        min-width: 0;
+      }
+      #export .export-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        margin-top: 10px;
+      }
+      #export button {
+        font: inherit;
+        min-height: 36px;
+        padding: 0 14px;
+        border: 1px solid rgba(42, 47, 54, 0.25);
+        border-radius: 18px;
+        background: #fff;
+        cursor: pointer;
+      }
+      #export button[type='submit'] {
+        color: #fff;
+        background: #2a2f36;
+        border-color: #2a2f36;
+      }
       #stage {
         position: fixed;
         inset: 0;
@@ -192,7 +255,38 @@
         </svg>
         Mic
       </button>
+      <button id="export-button" type="button" title="Export the panorama (E)">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path
+            d="M12 3v12M7 10l5 5 5-5M4 20h16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        Export
+      </button>
     </div>
+    <form id="export" hidden>
+      <strong>Export a panorama</strong>
+      <p id="export-what"></p>
+      <label>
+        Height
+        <select id="export-height">
+          <option value="720">720 px</option>
+          <option value="1080" selected>1080 px</option>
+          <option value="1440">1440 px</option>
+        </select>
+      </label>
+      <label class="check"><input id="export-caption" type="checkbox" /> Caption strip</label>
+      <label>Title <input id="export-title" type="text" maxlength="80" /></label>
+      <div class="export-actions">
+        <button type="button" id="export-cancel">Cancel</button>
+        <button type="submit">Export</button>
+      </div>
+    </form>
     <noscript>Topotone needs JavaScript to draw the landscape.</noscript>
     <script type="module" src="/src/main.ts"></script>
   </body>

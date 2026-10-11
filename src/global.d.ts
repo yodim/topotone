@@ -16,6 +16,16 @@ declare global {
         /** World time up to which live features are final; Infinity without live input. */
         live: number;
       };
+      /** Renders the panorama E would export (without saving it), for the tests. */
+      panorama: (options?: {
+        height?: number;
+        caption?: boolean;
+        from?: number;
+        to?: number;
+      }) => Promise<{
+        canvas: HTMLCanvasElement;
+        layout: { width: number; height: number; pxPerSecond: number; t0: number; squeeze: number };
+      }>;
       /** Times of onsets stronger than `min` between from and to, in world time. */
       onsets: (from: number, to: number, min?: number) => number[];
     };

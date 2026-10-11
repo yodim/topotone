@@ -1,6 +1,6 @@
 /**
- * Two buttons in the corner: play a song and turn the mic on or off. They are the only way in
- * on a phone, where there is no keyboard and no drag and drop. They dim when nothing moves for
+ * Buttons in the corner: play a song, turn the mic on or off, and export the panorama. They
+ * are the only way in on a phone, where there is no keyboard and no drag and drop. They dim when nothing moves for
  * a few seconds and come back on any touch, click or key.
  */
 const IDLE_MS = 3000;
@@ -12,11 +12,12 @@ export interface Controls {
 
 export function bindControls(
   root: HTMLElement,
-  actions: { song: () => void; mic: () => void },
+  actions: { song: () => void; mic: () => void; export: () => void },
 ): Controls {
   const song = root.querySelector<HTMLButtonElement>('#song-button');
   const mic = root.querySelector<HTMLButtonElement>('#mic-button');
-  if (!song || !mic) throw new Error('Missing control buttons');
+  const exporter = root.querySelector<HTMLButtonElement>('#export-button');
+  if (!song || !mic || !exporter) throw new Error('Missing control buttons');
 
   const press = (button: HTMLButtonElement, action: () => void) =>
     button.addEventListener('click', () => {
@@ -26,6 +27,7 @@ export function bindControls(
     });
   press(song, actions.song);
   press(mic, actions.mic);
+  press(exporter, actions.export);
 
   let timer = 0;
   const wake = () => {

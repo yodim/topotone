@@ -1,4 +1,5 @@
 import { bindControls } from './app/controls';
+import { Exporter } from './app/exporter';
 import { bindFiles } from './app/files';
 import { bindKeys } from './app/keyboard';
 import { Meters } from './app/meters';
@@ -19,7 +20,9 @@ const canvas = document.querySelector<HTMLCanvasElement>('#stage');
 const statusEl = document.querySelector<HTMLElement>('#status');
 const fileInput = document.querySelector<HTMLInputElement>('#file-input');
 const controlsEl = document.querySelector<HTMLElement>('#controls');
-if (!canvas || !statusEl || !fileInput || !controlsEl) throw new Error('Missing page elements');
+const exportEl = document.querySelector<HTMLFormElement>('#export');
+if (!canvas || !statusEl || !fileInput || !controlsEl || !exportEl)
+  throw new Error('Missing page elements');
 
 const params = parseParams(location.search);
 const seed = params.seedText === null ? randomSeed() : seedFromText(params.seedText);
@@ -65,6 +68,7 @@ const mic = new MicSwitch(manager, status);
 const controls = bindControls(controlsEl, {
   song: () => fileInput.click(),
   mic: () => void mic.toggle(),
+  export: () => exporter.toggle(),
 });
 
 // Keys 1 to 3 pick a style. The land is redrawn and the old style fades out over it.
@@ -99,6 +103,13 @@ const styleKeys = Object.fromEntries(
   STYLE_KEYS.map((id, i) => [String(i + 1), () => void switchStyle(id)]),
 );
 
+const exporter: Exporter = new Exporter(exportEl, {
+  manager,
+  seed,
+  style: () => currentStyle,
+  status,
+});
+
 const songs = new SongLoader(status, (song) => manager.playSong(song));
 bindFiles(fileInput, (file) => void songs.load(file));
 
@@ -108,6 +119,8 @@ bindKeys({
   t: () => tune?.toggle(),
   o: () => fileInput.click(),
   m: () => void mic.toggle(),
+  e: () => exporter.toggle(),
+  escape: () => exporter.close(),
   ' ': () => {
     if (manager.song) void audioContext().resume();
     if (!manager.togglePause()) {
@@ -145,6 +158,7 @@ window.topotone = {
     song: manager.song?.name ?? null,
     live: manager.liveUntil(),
   }),
+  panorama: (options) => exporter.render(options),
   onsets: (from, to, min = 0.3) =>
     manager
       .frames(from, to)
