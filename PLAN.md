@@ -297,44 +297,44 @@ Notes from 3a:
 
 Order: paper cutout first (simplest, validates the `Style` interface), then ink, then ukiyo-e. Each style is inspired by a technique, never a copy of a specific artwork.
 
-- [ ] Finalize the `Style` interface, `_template`, and `registry.ts` with `import.meta.glob`
-- [ ] Live style switching with a crossfade of about 0.5 s
-- [ ] `styles/shared/`: procedural paper grain, noise-based edge roughening, Catmull-Rom smoothing for ridges, variable-width strokes along a path, palette helpers
+- [x] Finalize the `Style` interface, `_template`, and `registry.ts` with `import.meta.glob`
+- [x] Live style switching with a crossfade of about 0.5 s
+- [x] `styles/shared/`: procedural paper grain, noise-based edge roughening, Catmull-Rom smoothing for ridges, variable-width strokes along a path, palette helpers
 
 **Paper cutout**
 
-- [ ] Each layer is a sheet of colored paper: flat fill under the ridge, edges slightly roughened, a soft drop shadow cast onto the layer behind
-- [ ] Paper fiber texture over each sheet, slightly different per layer
-- [ ] Far layers lighter and cooler, near layers deeper and warmer
-- [ ] Trees as simple cut shapes picked by `variant` (triangle conifers, round trees on sticks), a few with thin cut-line details
-- [ ] Water as a separate paler sheet with one or two cut wave strips
-- [ ] Sky as a flat gradient sheet, a paper sun, rounded cutout clouds
+- [x] Each layer is a sheet of colored paper: flat fill under the ridge, edges slightly roughened, a soft drop shadow cast onto the layer behind
+- [x] Paper fiber texture over each sheet, slightly different per layer
+- [x] Far layers lighter and cooler, near layers deeper and warmer
+- [x] Trees as simple cut shapes picked by `variant` (triangle conifers, round trees on sticks), a few with thin cut-line details
+- [x] Water as a separate paler sheet with one or two cut wave strips
+- [x] Sky as a flat gradient sheet, a paper sun, rounded cutout clouds
 
 **Ink painting**
 
-- [ ] Warm off-white rice paper background with faint fibers
-- [ ] Mountains as ink washes that fade downward into the paper, outlined with variable-width brush strokes, with short texture strokes on the slopes (denser where the terrain is rugged)
-- [ ] Distance shown by tone only: far ranges pale grey, near ones dark
-- [ ] Mist bands between layers through `drawAtmosphere`, drifting slowly
-- [ ] Trees as tapered trunk strokes with dotted or dabbed foliage, pines with layered needle strokes
-- [ ] Water left mostly as empty paper with a few thin horizontal lines
-- [ ] Birds as tiny brush marks
-- [ ] Optional red seal stamp in a corner with the project initials (no invented characters)
+- [x] Warm off-white rice paper background with faint fibers
+- [x] Mountains as ink washes that fade downward into the paper, outlined with variable-width brush strokes, with short texture strokes on the slopes (denser where the terrain is rugged)
+- [x] Distance shown by tone only: far ranges pale grey, near ones dark
+- [x] Mist bands between layers through `drawAtmosphere`, drifting slowly
+- [x] Trees as tapered trunk strokes with dotted or dabbed foliage, pines with layered needle strokes
+- [x] Water left mostly as empty paper with a few thin horizontal lines
+- [x] Birds as tiny brush marks
+- [x] Optional red seal stamp in a corner with the project initials (no invented characters)
 
 **Ukiyo-e woodblock**
 
-- [ ] Flat opaque color areas with a dark keyline of steady width, colors misregistered by 1 to 2 px for a printed feel
-- [ ] Bokashi gradients at the top of the sky and along the horizon
-- [ ] Limited palette: Prussian blue, indigo, vermilion, ochre, pale green, ivory paper, black keyline
-- [ ] Mountains with stylized parallel striations, snowcaps above a height threshold
-- [ ] Clouds as long horizontal bands with rounded ends
-- [ ] Water with scalloped wave patterns and small foam curls
-- [ ] Pines with stacked flat canopies; in bright moods, some blossoming trees as pink dot clusters
-- [ ] Faint wood grain in large flat areas
+- [x] Flat opaque color areas with a dark keyline of steady width, colors misregistered by 1 to 2 px for a printed feel
+- [x] Bokashi gradients at the top of the sky and along the horizon
+- [x] Limited palette: Prussian blue, indigo, vermilion, ochre, pale green, ivory paper, black keyline
+- [x] Mountains with stylized parallel striations, snowcaps above a height threshold
+- [x] Clouds as long horizontal bands with rounded ends
+- [x] Water with scalloped wave patterns and small foam curls
+- [x] Pines with stacked flat canopies; in bright moods, some blossoming trees as pink dot clusters
+- [x] Faint wood grain in large flat areas
 
 **Done when:** each style looks intentional on the three reference seeds (screenshots saved in `docs/screenshots/`), holds 60 fps, switches instantly, and stays deterministic.
 
-Phase 4 runs in three pull requests: 4a for the shared helpers, the template, live switching and paper (now the default style); 4b for ink; 4c for ukiyo-e, the reference screenshots and the ticks here.
+Phase 4 ran in three pull requests: 4a for the shared helpers, the template, live switching and paper (now the default style); 4b for ink; 4c for ukiyo-e, the reference screenshots and the ticks here. All three are done. The 60 fps line was only measured in headless software rendering, where ukiyo-e and ink hold 60 fps and paper runs a little below; a check on a real mid-range laptop is left to the maintainer.
 
 Notes from 4a:
 
@@ -347,3 +347,11 @@ Notes from 4b:
 
 - Ink: the sky is the paper itself (rice paper fibers, a grey wash at the top in dramatic passages, a pale vermilion sun at dusk). Each range is a wash drawn in thin columns, all sharing one gradient that is stretched per column; the fade is measured from a smoothed ridge so jagged crests do not streak it. The outline is a variable-width stroke whose pressure and dry breaks follow music time. Texture strokes point downhill and are denser where the ridge is steep or broken; moss dots sit on crests of the middle ranges. Both come from `env.rng` in a fixed count and lie wholly inside their chunk. Water is bare paper laid over the land, with a few broken lines. Pines are a bent trunk with flat plates of needle strokes; leafy trees are dabs in two tones; bare trees end in dots. Mist is a soft band at the foot of each range plus wisps that drift with the animation clock. The seal in the corner carries the project initials, TT.
 - `styles/shared/canvas.ts` gained `ViewCache`, a view-sized canvas repainted only when its key changes. Paper and ink both keep their sky in one.
+
+Notes from 4c:
+
+- Ukiyo-e: every color block is printed 1.5 px right and 1 px down from its keyline, which has the same width everywhere. Each range is a flat block with a gentle bokashi from the top of its band to the bottom, and faint wood grain from a tile built in setup. The distant ranges carry broken striations that follow a smoothed ridge, and snow above a fixed height line (0.66 for the far range, 0.86 for the middle one) with a jagged lower edge. The snow line depends on the ridge alone. A first version lowered it around lone peaks, and under the mic that left a snow patch cut off at a chunk edge.
+- The sky has a Prussian blue bokashi at the top, a band along the horizon (pale blue by day, ochre to vermilion when warm or at dusk) and a vermilion sun at dusk. Clouds are long bands with rounded ends in three height lanes, so they never overlap; like paper's, they slide down behind the far range when the sky clears.
+- Water is a Prussian blue block with rows of scallops (flatter when calm) and foam curls on the crest of rough water.
+- Pines have stacked flat canopies with a lighter top. Round trees blossom as pink dot clusters in bright moods, but only when the tree sits clear of its chunk's edges: blossoming depends on the sky at the chunk start, and a tree drawn by two chunks must look the same in both.
+- `tests/e2e/screenshots.spec.ts` shoots every style on the three reference seeds (`river`, `ember` and `willow`, one for each paper set) about 24 seconds in. `UPDATE_SCREENSHOTS=1 npm run test:e2e -- screenshots` writes them to `docs/screenshots/`.
