@@ -5,10 +5,11 @@
  * parallax offset, then the atmosphere and overlay hooks. Terrain is drawn only when a new
  * chunk scrolls into view, never every frame.
  */
+import { smoothstep } from '../core/math';
 import { createRng, hashSeed } from '../core/rng';
 import type { ChunkEnv, Style, View } from '../styles/types';
 import { isProgressive, type World } from '../world/generator';
-import { CHUNK_SECONDS, LAYERS, chunkIndexAt, chunkStart } from '../world/scene';
+import { CHUNK_SECONDS, LAYERS, chunkIndexAt, chunkStart, type SkyState } from '../world/scene';
 import { projectLayer, screenX, timeAtX, viewScale, type LayerProjection } from './camera';
 import { LayerStrip } from './strip';
 
@@ -131,12 +132,27 @@ const PLAYHEAD_SPEED = 0.5;
 /** Live input: open near-layer chunks are redrawn this often (seconds of new features). */
 const REVEAL_STEP = 0.25;
 
-/** Seconds over which old land fades out after the world is rebuilt. */
+/** Seconds over which old land fades out after the world is rebuilt or the style changes. */
 const FADE_SECONDS = 0.5;
+/**
+ * While old land is fading out, new chunks are drawn for at most this many milliseconds per
+ * frame (at least one chunk), so a style change never stalls a frame. The old land stays
+ * fully on top until the new land is complete, then fades.
+ */
+const FADE_BUDGET_MS = 6;
+/** Also at most this many chunks per frame: most of the drawing cost is paid later, at raster. */
+const FADE_BUDGET_CHUNKS = 10;
+/** Never hold the old land for longer than this, in seconds. */
+const MAX_HOLD_SECONDS = 1.5;
 
 interface Fading {
   layers: LayerState[];
+  /** The style the old strips were drawn in. */
+  style: Style;
+  /** When the fade starts. Pushed forward while the new land is still being drawn. */
   start: number;
+  /** When the old land was replaced, to cap how long it is held. */
+  since: number;
   surfaceKey: string;
 }
 
@@ -145,7 +161,11 @@ export class Renderer {
   private surfaceKey = '';
   private readonly chunkScratch: CanvasRenderingContext2D;
   private readonly shiftScratch: CanvasRenderingContext2D;
+  /** The old style's frame during a style crossfade. Shrunk to nothing between fades. */
+  private fadeScratch: CanvasRenderingContext2D | null = null;
   private chunksRendered = 0;
+  /** Milliseconds spent building and drawing chunks, for the average in stats(). */
+  private chunkMs = 0;
   private dpr = 1;
   private scale = 1;
   private fading: Fading | null = null;
@@ -168,7 +188,13 @@ export class Renderer {
    */
   reset(): void {
     if (this.layers.length > 0) {
-      this.fading = { layers: this.layers, start: this.clock, surfaceKey: this.surfaceKey };
+      this.fading = {
+        layers: this.layers,
+        style: this.style,
+        start: this.clock,
+        since: this.clock,
+        surfaceKey: this.surfaceKey,
+      };
     }
     this.layers = [];
     this.surfaceKey = '';
@@ -184,10 +210,14 @@ export class Renderer {
     this.playheadTarget = fraction;
   }
 
-  /** Switches style. Every cached chunk is redrawn on the next frame. */
+  /**
+   * Switches style. The land is redrawn in the new style on the next frame, and the old
+   * style's whole frame (sky included) fades out on top of it.
+   */
   setStyle(style: Style): void {
+    if (style === this.style) return;
+    this.reset();
     this.style = style;
-    for (const layer of this.layers) layer.strip.invalidate();
   }
 
   /**
@@ -207,9 +237,12 @@ export class Renderer {
     this.clock = clock;
     this.liveUntil = liveUntil;
     this.fit(surface);
-    const fading = this.fading;
-    const fade = fading ? 1 - (clock - fading.start) / FADE_SECONDS : 0;
-    if (fading && (fade <= 0 || fading.surfaceKey !== this.surfaceKey)) this.fading = null;
+    let fading = this.fading;
+    const fade = fading ? 1 - smoothstep(0, FADE_SECONDS, clock - fading.start) : 0;
+    if (fading && (fade <= 0 || fading.surfaceKey !== this.surfaceKey)) {
+      this.fading = fading = null;
+      this.releaseFadeScratch();
+    }
     const view: View = {
       width: surface.cssWidth,
       height: surface.cssHeight,
@@ -219,6 +252,17 @@ export class Renderer {
     };
     const playheadX = surface.cssWidth * this.playhead;
     const sky = this.world.skyAt(now);
+    // Same style: each old layer fades out over its new one. New style: the old style's
+    // whole frame is drawn aside and fades out over the new frame.
+    const sameStyle = fading !== null && fading.style === this.style;
+
+    // Only the time spent drawing chunks counts, so compositing never starves a layer.
+    let allowed = FADE_BUDGET_CHUNKS;
+    const spentBefore = this.chunkMs;
+    const budget = fading
+      ? () => allowed-- > 0 && this.chunkMs - spentBefore < FADE_BUDGET_MS
+      : undefined;
+    let complete = true;
 
     ctx.save();
     this.style.drawSky(ctx, sky, view);
@@ -229,44 +273,79 @@ export class Renderer {
       const first = chunkIndexAt(timeAtX(0, now, playheadX, p.pxPerSecond));
       const last = chunkIndexAt(timeAtX(surface.cssWidth, now, playheadX, p.pxPerSecond));
       this.refreshOpen(layer, i);
-      this.chunksRendered += strip.ensure(first, last, (sctx, index, x) =>
-        this.renderChunk(sctx, i, index, x, p),
+      this.chunksRendered += strip.ensure(
+        first,
+        last,
+        (sctx, index, x) => this.renderChunk(sctx, i, index, x, p),
+        budget,
       );
-      const x = screenX(chunkStart(strip.firstIndex), now, playheadX, p.pxPerSecond);
-      ctx.drawImage(strip.canvas, x, p.top, strip.canvas.width / surface.dpr, p.height);
-      const old = this.fading?.layers[i];
+      complete &&= strip.complete;
+      drawStrip(ctx, layer, now, playheadX, surface.dpr);
+      const old = sameStyle ? fading?.layers[i] : undefined;
       if (old) {
-        const ox = screenX(
-          chunkStart(old.strip.firstIndex),
-          now,
-          playheadX,
-          old.projection.pxPerSecond,
-        );
         ctx.globalAlpha = fade;
-        ctx.drawImage(
-          old.strip.canvas,
-          ox,
-          old.projection.top,
-          old.strip.canvas.width / surface.dpr,
-          old.projection.height,
-        );
+        drawStrip(ctx, old, now, playheadX, surface.dpr);
         ctx.globalAlpha = 1;
       }
       this.world.retain(i, first - 2, last + 2);
-
-      const spec = LAYERS[i];
-      if (spec && this.style.drawAtmosphere) {
-        ctx.save();
-        this.style.drawAtmosphere(ctx, spec.depth, sky, view);
-        ctx.restore();
-      }
+      drawAtmosphere(ctx, this.style, i, sky, view);
     });
+    drawOverlay(ctx, this.style, view);
+    // Hold the old land until the new land is whole.
+    if (fading && !complete && clock - fading.since < MAX_HOLD_SECONDS) fading.start = clock;
 
-    if (this.style.drawOverlay) {
+    if (fading && !sameStyle) {
+      const old = this.oldFrame(fading, surface, view, playheadX, sky);
       ctx.save();
-      this.style.drawOverlay(ctx, view);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.globalAlpha = fade;
+      ctx.drawImage(
+        old.canvas,
+        0,
+        0,
+        surface.width,
+        surface.height,
+        0,
+        0,
+        surface.width,
+        surface.height,
+      );
       ctx.restore();
     }
+  }
+
+  /** The old style's frame, with its strips as they were when the style changed. */
+  private oldFrame(
+    fading: Fading,
+    surface: Surface,
+    view: View,
+    playheadX: number,
+    sky: SkyState,
+  ): CanvasRenderingContext2D {
+    this.fadeScratch ??= scratchContext();
+    const c = this.fadeScratch;
+    if (c.canvas.width !== surface.width || c.canvas.height !== surface.height) {
+      c.canvas.width = surface.width;
+      c.canvas.height = surface.height;
+    }
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.clearRect(0, 0, surface.width, surface.height);
+    c.setTransform(surface.dpr, 0, 0, surface.dpr, 0, 0);
+    c.save();
+    fading.style.drawSky(c, sky, view);
+    c.restore();
+    fading.layers.forEach((layer, i) => {
+      drawStrip(c, layer, view.now, playheadX, surface.dpr);
+      drawAtmosphere(c, fading.style, i, sky, view);
+    });
+    drawOverlay(c, fading.style, view);
+    return c;
+  }
+
+  private releaseFadeScratch(): void {
+    if (!this.fadeScratch) return;
+    this.fadeScratch.canvas.width = 1;
+    this.fadeScratch.canvas.height = 1;
   }
 
   stats() {
@@ -277,6 +356,7 @@ export class Renderer {
         0,
       ),
       chunksRendered: this.chunksRendered,
+      chunkMs: this.chunksRendered > 0 ? this.chunkMs / this.chunksRendered : 0,
     };
   }
 
@@ -327,6 +407,7 @@ export class Renderer {
     x: number,
     p: LayerProjection,
   ): void {
+    const started = performance.now();
     const world = this.world;
     const chunk = world.chunk(layer, index);
     const start = chunkStart(index);
@@ -340,6 +421,7 @@ export class Renderer {
       height: p.height,
       bleed: p.bleed,
       scale: this.scale,
+      pxPerSecond: p.pxPerSecond,
       toX: (t) => p.bleed + (t - start) * p.pxPerSecond,
       toY: p.toY,
     };
@@ -361,7 +443,42 @@ export class Renderer {
     }
     if (width > 0)
       target.drawImage(c.canvas, p.bleedPx, 0, width, p.heightPx, x, 0, width, p.heightPx);
+    this.chunkMs += performance.now() - started;
   }
+}
+
+/** Composites a layer's strip at its parallax offset. */
+function drawStrip(
+  ctx: CanvasRenderingContext2D,
+  layer: LayerState,
+  now: number,
+  playheadX: number,
+  dpr: number,
+): void {
+  const { projection: p, strip } = layer;
+  const x = screenX(chunkStart(strip.firstIndex), now, playheadX, p.pxPerSecond);
+  ctx.drawImage(strip.canvas, x, p.top, strip.canvas.width / dpr, p.height);
+}
+
+function drawAtmosphere(
+  ctx: CanvasRenderingContext2D,
+  style: Style,
+  layer: number,
+  sky: SkyState,
+  view: View,
+): void {
+  const spec = LAYERS[layer];
+  if (!spec || !style.drawAtmosphere) return;
+  ctx.save();
+  style.drawAtmosphere(ctx, spec.depth, sky, view);
+  ctx.restore();
+}
+
+function drawOverlay(ctx: CanvasRenderingContext2D, style: Style, view: View): void {
+  if (!style.drawOverlay) return;
+  ctx.save();
+  style.drawOverlay(ctx, view);
+  ctx.restore();
 }
 
 function scratchContext(): CanvasRenderingContext2D {

@@ -62,6 +62,11 @@ export interface ChunkEnv {
    * by it, so the panorama export at another height matches the live view.
    */
   scale: number;
+  /**
+   * Horizontal speed of this layer: CSS pixels per second of music. toX(t) is
+   * bleed + (t - chunk start) * pxPerSecond.
+   */
+  pxPerSecond: number;
   /** Music time to chunk-local x. */
   toX(t: number): number;
   /** Ridge height 0..1 to y for this layer. */
