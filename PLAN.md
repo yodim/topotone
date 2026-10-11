@@ -363,3 +363,66 @@ Follow-up after 4c:
 - Under live input the land fades out over 28 px at the live edge instead of ending in a straight cut, and the chunk before a growing one is redrawn while the live edge is within 2 s of the new chunk's start, so a tree that appears there is never cut in half.
 - Paper's snow and ink's darker summits now follow the ridge alone, like ukiyo-e's snow: paper cuts snow above a height line on the far range, and ink adds texture strokes on tall far peaks. `bandRuns` in `styles/shared/ridge.ts` finds the stretches between a ridge and such a line.
 - Ink lakes have a soft shore: thin bands of paper above the surface, each paler than the one below.
+
+### Phase 5: Panorama export
+
+- [ ] Rebuild every chunk from the stored feature history (whole song in file mode, session so far in mic and fallback modes) and render it into one long image at a chosen height (1080 px by default)
+- [ ] Respect canvas limits: keep the width at or under 16384 px (safe for Safari) by adjusting pixels per second, and tell the user when the image was compressed horizontally
+- [ ] Optional caption strip: song name (editable), seed, style, date
+- [ ] Download as PNG with `toBlob`, with a progress indicator and no frozen UI
+
+**Done when:** a 4 minute song exports in under about 10 seconds, and a short fixture exported as a panorama matches the live view for the same stretch (pixel comparison test).
+
+### Phase 6: Interface and polish
+
+- [ ] Minimal control bar that fades out when idle: Song, Mic, Style, Seed (shuffle), Export, Fullscreen, About
+- [ ] Drag and drop anywhere on the page
+- [ ] Keyboard: `Space` play or pause, `1` to `3` styles, `S` new seed, `D` debug, `F` fullscreen, `E` export
+- [ ] Tap to start on mobile for audio, with the fallback already running behind
+- [ ] `prefers-reduced-motion`: slower scroll, no flashing crossfades
+- [ ] Short friendly errors: unsupported file, decode failure, mic denied
+- [ ] About panel: what it is, privacy (audio never leaves the device), repo link, credits
+
+**Done when:** it works and feels good on a phone and a laptop, and someone who has never seen it understands what to do within a few seconds.
+
+### Phase 7: Open source release
+
+- [ ] README: one-line pitch, animated GIF and screenshots of the three styles, live demo link, the pipeline diagram, the mapping table, how to run it locally
+- [ ] `CONTRIBUTING.md` with two walkthroughs: "Add a style" (from `_template` to a working style) and "Tune the mapping"
+- [ ] `CODE_OF_CONDUCT.md`, issue templates (bug, new style proposal, mapping idea), pull request template
+- [ ] Social preview image generated from the app itself
+- [ ] A handful of "good first issue" tickets: watercolor style, pixel art style, night sky with stars, weather, seasons, MIDI input
+
+## Design notes and known traps
+
+- **Where "now" is.** File mode: the whole track is analyzed up front, the playhead sits in the middle of the screen, and the content at the playhead is what you hear. Mic mode: the playhead sits at the right edge, so the land is drawn as it is heard. Fallback: playhead in the middle, synthetic features have infinite lookahead.
+- **Far layers need the future.** With parallax, the right edge of a far layer shows music time well ahead of the playhead. File and synthetic sources can answer. In mic mode, far layers are generated from the latest slow, smoothed features when they first come into view, then frozen. They change slowly by nature, so this reads as natural.
+- **Mic mode near layers.** Built in short slices (about 0.25 s) that are finalized as audio arrives, so the foreground grows in real time without regenerating visible content.
+- **Chunks are frozen.** Once a chunk is generated it never changes. Regenerating visible content causes popping.
+- **Chunk edges.** Objects near an edge overhang into the neighbor. Each chunk canvas has a bleed margin and draws its own objects plus overhanging objects from its neighbors, then the engine clips it to its exact bounds. Strokes along a ridge start and end inside the bleed, never exactly at the edge, or semi-transparent washes will show seams.
+- **Clock.** Sync visuals to `AudioContext.currentTime`, not to `requestAnimationFrame` timestamps, or the world drifts away from the music.
+- **Autoplay.** `AudioContext` needs a user gesture. The fallback needs no audio at all, so it can start immediately.
+- **Microphone.** Never connect the mic to the speakers (feedback). Turn off echo cancellation, noise suppression and auto gain, they distort music.
+- **Normalization.** Different recordings have very different levels. Without normalization, quiet songs produce flat land and loud ones produce spikes.
+- **Offline analysis.** A 4 minute track is about 20,000 FFT frames. Run it in a worker and show progress.
+- **Canvas limits.** Browsers cap canvas size (Safari is the strictest). Keep panoramas at or under 16384 px wide.
+- **Pixel ratio.** Cap at 2. Chunk canvases are sized in device pixels.
+- **Memory.** Evict chunk canvases off-screen. Keep only feature frames (small) as history for export.
+- **Safari.** Prefer regular canvas elements over `OffscreenCanvas` for the chunk cache, for older Safari versions.
+- **GitHub Pages.** Set Vite `base` to the repository path.
+
+## After v1
+
+- **Idle mode sings.** In fallback mode, the landscape plays itself: peaks become notes in a pentatonic scale, trees become soft percussion, rivers a low drone. The loop closes.
+- Record a short video with sound (`canvas.captureStream` with `MediaRecorder`)
+- Poster export: the panorama cut into rows and stacked, at print sizes
+- Mapping presets (calm, dramatic, literal) and shareable mapping JSON
+- More styles: watercolor (probably WebGL), pixel art, risograph, blueprint
+- Seasons and day and night following the structure of the song
+- MIDI input as a source
+
+## Open decisions
+
+- Name: "Topotone" is a placeholder
+- License: MIT proposed
+- Hosting: GitHub Pages proposed
