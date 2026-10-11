@@ -155,4 +155,24 @@ describe('SourceManager', () => {
     expect(manager.now()).toBe(10);
     expect(manager.song).toBe(second);
   });
+
+  it('knows the latest session to export', () => {
+    const { manager } = setup();
+    expect(manager.latestSession()).toBeNull();
+    manager.tick(5);
+    const first = fakeSong(60);
+    manager.playSong(first);
+    // The whole song, even before it played.
+    expect(manager.latestSession()).toEqual({ kind: 'file', name: 'fake', start: 5, end: 65 });
+    first.advance(10);
+    // Cut short by the next song: the first one now ends where it stopped.
+    const second = fakeSong(20);
+    manager.playSong(second);
+    expect(manager.latestSession()).toEqual({ kind: 'file', name: 'fake', start: 15, end: 35 });
+    second.advance(20);
+    manager.tick(3);
+    // Back on free time, the last song is still the session.
+    expect(manager.kind).toBe('synthetic');
+    expect(manager.latestSession()?.start).toBe(15);
+  });
 });

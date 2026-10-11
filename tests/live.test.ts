@@ -139,6 +139,11 @@ describe('SourceManager with a live source', () => {
     expect(manager.togglePause()).toBe(false);
     manager.tick(1);
     expect(manager.kind).toBe('mic');
+    // A running mic session ends at its live edge.
+    const session = manager.latestSession();
+    expect(session?.kind).toBe('mic');
+    expect(session?.start).toBe(5);
+    expect(session?.end).toBeCloseTo(6.9, 9);
   });
 
   it('hands back to the synthetic source when the mic stops', () => {
@@ -155,6 +160,8 @@ describe('SourceManager with a live source', () => {
     expect(manager.kind).toBe('synthetic');
     expect(manager.now()).toBe(8);
     expect(manager.liveUntil()).toBe(Infinity);
+    // A stopped one ends where it stopped.
+    expect(manager.latestSession()).toEqual({ kind: 'mic', name: null, start: 5, end: 8 });
     manager.tick(1);
     expect(manager.now()).toBe(9);
     expect(manager.frames(11, 12)).toEqual(manager.synthetic.frames(11, 12));
