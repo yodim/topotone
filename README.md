@@ -2,7 +2,7 @@
 
 Topotone turns sound into landscape. A song, a microphone or a seeded random source drives a procedural world that scrolls from right to left. Melody raises mountains, beats plant trees, bass carves rivers. The same world can be drawn in several art styles.
 
-It is early days. With no sound, the world is driven by a seeded synthetic source that behaves like music. Drop a song, or turn on the microphone, and the world follows it. It is drawn as a paper cutout; more styles are on the way. See [PLAN.md](PLAN.md) for where it is heading.
+It is early days. With no sound, the world is driven by a seeded synthetic source that behaves like music. Drop a song, or turn on the microphone, and the world follows it. It can be drawn as a paper cutout or an ink painting; a woodblock print style is on the way. See [PLAN.md](PLAN.md) for where it is heading.
 
 ## Trying it
 
