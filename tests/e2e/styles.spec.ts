@@ -35,6 +35,11 @@ test('paper is the default, and number keys switch styles with a crossfade', asy
   await page.waitForTimeout(800);
   await page.screenshot({ path: 'test-results/style-ink.png' });
 
+  await page.keyboard.press('3');
+  await expect(page.locator('#status')).toContainText('Ukiyo-e woodblock');
+  await expect(page).toHaveURL(/[?&]style=ukiyoe/);
+  expect(await page.evaluate(() => window.topotone?.style())).toBe('ukiyoe');
+
   // The world keeps moving through the switch.
   const t0 = await page.evaluate(() => window.topotone?.source().now ?? 0);
   await page.waitForTimeout(400);

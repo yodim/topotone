@@ -2,7 +2,7 @@
 
 Topotone turns sound into landscape. A song, a microphone or a seeded random source drives a procedural world that scrolls from right to left. Melody raises mountains, beats plant trees, bass carves rivers. The same world can be drawn in several art styles.
 
-It is early days. With no sound, the world is driven by a seeded synthetic source that behaves like music. Drop a song, or turn on the microphone, and the world follows it. It can be drawn as a paper cutout or an ink painting; a woodblock print style is on the way. See [PLAN.md](PLAN.md) for where it is heading.
+It is early days. With no sound, the world is driven by a seeded synthetic source that behaves like music. Drop a song, or turn on the microphone, and the world follows it. It can be drawn as a paper cutout, an ink painting or a ukiyo-e woodblock print. Reference screenshots of each are in [docs/screenshots](docs/screenshots). See [PLAN.md](PLAN.md) for where it is heading.
 
 ## Trying it
 
@@ -58,7 +58,8 @@ npm run dev        # local dev server
 npm run build      # production build for GitHub Pages
 npm run preview    # serve the build
 npm run test       # unit tests
-npm run test:e2e   # browser smoke test (run `npx playwright install chromium` once first)
+npm run test:e2e   # browser tests (run `npx playwright install chromium` once first)
+                   # UPDATE_SCREENSHOTS=1 npm run test:e2e -- screenshots refreshes docs/screenshots
 npm run lint       # eslint and prettier check
 npm run typecheck  # tsc
 npm run fixtures   # write the test signals as WAV files to tests/fixtures/out/
