@@ -14,7 +14,7 @@ import type { ChunkEnv, Style } from '../types';
 import { buildLook, look } from './look';
 import { drawPiece, drawSnow, type PieceContext } from './objects';
 import { shadow } from './palette';
-import { drawAtmosphere, drawSky } from './sky';
+import { drawAtmosphere, drawSky, drawSkyStrip } from './sky';
 import { drawWater } from './water';
 
 /** Scissors are not perfectly steady: a slow wobble and a fine jitter along every cut. */
@@ -85,6 +85,7 @@ const paper: Style = {
   },
 
   drawSky,
+  drawSkyStrip,
   drawAtmosphere,
 
   drawLayerChunk(ctx, chunk, env: ChunkEnv) {

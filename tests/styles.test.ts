@@ -74,6 +74,20 @@ describe('every style', () => {
       expect(sky.log.length).toBeGreaterThan(0);
       style.drawAtmosphere?.(recordingContext().ctx, 0.5, world.skyAt(3), view);
       style.drawOverlay?.(recordingContext().ctx, view);
+      if (style.drawSkyStrip) {
+        const strip = recordingContext();
+        style.drawSkyStrip(strip.ctx, {
+          width: 3000,
+          height: 600,
+          dpr: 1,
+          scale: 600 / 1080,
+          t0: -10,
+          pxPerSecond: 35,
+          skyAt: (t) => world.skyAt(t),
+        });
+        expect(strip.log.length).toBeGreaterThan(0);
+        expect(strip.log.join('\n')).not.toMatch(/NaN|Infinity/);
+      }
     });
 
     it(`${style.id} draws the same chunk the same way twice`, () => {
