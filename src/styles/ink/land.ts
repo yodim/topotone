@@ -149,7 +149,9 @@ export function drawTexture(
     const y = h(t);
     const slope = (y1 - y0) / (2 * delta * pps);
     const bend = Math.abs(y0 - 2 * y + y1) / (delta * pps);
-    const rugged = clamp01(0.04 + 0.9 * Math.abs(slope) + 1.5 * bend);
+    // Tall peaks of the distant range get more strokes, as if the brush went back to them.
+    const tall = depth < 0.3 ? 0.7 * smoothstep(0.62, 0.9, ridgeAt(chunk, env.neighbors, t)) : 0;
+    const rugged = clamp01(0.04 + 0.9 * Math.abs(slope) + 1.5 * bend + tall);
     if (roll > rugged) continue;
     // Downhill along the slope, pulled towards vertical.
     let dx = slope >= 0 ? 1 : -1;
@@ -231,6 +233,28 @@ export function drawWater(
     ctx.closePath();
     ctx.fillStyle = css(PAPER);
     ctx.fill();
+    // A soft shore: thin bands of paper above the surface, each paler than the one below,
+    // so the land dissolves into the water instead of ending in a cut.
+    const bands = 7;
+    const shore = 14 * k;
+    for (let j = 0; j < bands; j++) {
+      ctx.beginPath();
+      const lo = (j * shore) / bands;
+      const hi = ((j + 1) * shore) / bands;
+      ts.forEach((t, i) => {
+        const x = env.toX(t);
+        const y = surface(t) - hi;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      for (let i = ts.length - 1; i >= 0; i--) {
+        const t = ts[i] as number;
+        ctx.lineTo(env.toX(t), surface(t) - lo + 0.3);
+      }
+      ctx.closePath();
+      ctx.fillStyle = css(PAPER, (bands - j) / (bands + 1));
+      ctx.fill();
+    }
 
     // A few thin lines, broken where the noise says, wavier on rough water.
     ctx.strokeStyle = css(INK, 0.38);
@@ -241,7 +265,8 @@ export function drawWater(
       let drawing = false;
       for (const t of ts) {
         const u = layerDistance(env, t);
-        const inside = t > run.t0 + 0.15 && t < run.t1 - 0.15;
+        // Only where the surface is flat: near the ends it curves down into the banks.
+        const inside = t > run.t0 + 0.6 && t < run.t1 - 0.6;
         const on = inside && noise1(hashSeed(seed, row), u / 55) > 0.05 + 0.1 * row;
         if (!on) {
           drawing = false;

@@ -141,3 +141,28 @@ export function waterValueAt(run: WaterRun, t: number, value: (span: WaterSpan) 
   }
   return value(prev);
 }
+
+/**
+ * Index ranges [first, last] where `lower` sits below `upper` by more than `min` pixels:
+ * the stretches that a band between the two lines covers, such as snow between the ridge and
+ * a snow line. Runs shorter than three samples are dropped.
+ */
+export function bandRuns(
+  upper: ArrayLike<number>,
+  lower: ArrayLike<number>,
+  min = 0.5,
+): [number, number][] {
+  const runs: [number, number][] = [];
+  const n = Math.min(upper.length, lower.length);
+  let i = 0;
+  while (i < n) {
+    if ((lower[i] as number) <= (upper[i] as number) + min) {
+      i++;
+      continue;
+    }
+    const first = i;
+    while (i < n && (lower[i] as number) > (upper[i] as number) + min) i++;
+    if (i - 1 - first >= 2) runs.push([first, i - 1]);
+  }
+  return runs;
+}

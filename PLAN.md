@@ -355,3 +355,11 @@ Notes from 4c:
 - Water is a Prussian blue block with rows of scallops (flatter when calm) and foam curls on the crest of rough water.
 - Pines have stacked flat canopies with a lighter top. Round trees blossom as pink dot clusters in bright moods, but only when the tree sits clear of its chunk's edges: blossoming depends on the sky at the chunk start, and a tree drawn by two chunks must look the same in both.
 - `tests/e2e/screenshots.spec.ts` shoots every style on the three reference seeds (`river`, `ember` and `willow`, one for each paper set) about 24 seconds in. `UPDATE_SCREENSHOTS=1 npm run test:e2e -- screenshots` writes them to `docs/screenshots/`.
+
+Follow-up after 4c:
+
+- Live join, rewritten: a far chunk built next to a frozen one now starts on its edge with its slope, and the gap dies away like a critically damped spring (5 s for the far range, 2.5 s for the middle one). The ease only needs the neighbor's last two samples, so a chunk built next to one that is still easing carries on without a kink. Arithmetic only, like the rest of the generator.
+- The steep rise sometimes seen at the left of the far range under the mic is not a join: the live mapping makes it. Its context looks back only, so the far range can climb about three times faster than with a song (0.38 in 1.5 s against 4 s). That is Phase 3b tuning.
+- Under live input the land fades out over 28 px at the live edge instead of ending in a straight cut, and the chunk before a growing one is redrawn while the live edge is within 2 s of the new chunk's start, so a tree that appears there is never cut in half.
+- Paper's snow and ink's darker summits now follow the ridge alone, like ukiyo-e's snow: paper cuts snow above a height line on the far range, and ink adds texture strokes on tall far peaks. `bandRuns` in `styles/shared/ridge.ts` finds the stretches between a ridge and such a line.
+- Ink lakes have a soft shore: thin bands of paper above the surface, each paler than the one below.

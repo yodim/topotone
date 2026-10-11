@@ -12,7 +12,7 @@ import { css, mix, shade, type Rgb } from '../shared/palette';
 import { layerDistance, objectsAround, ridgeAt, sampleRidge, waterAround } from '../shared/ridge';
 import type { ChunkEnv, Style } from '../types';
 import { buildLook, look } from './look';
-import { drawPiece, snowCap, type PieceContext } from './objects';
+import { drawPiece, drawSnow, type PieceContext } from './objects';
 import { shadow } from './palette';
 import { drawAtmosphere, drawSky } from './sky';
 import { drawWater } from './water';
@@ -68,6 +68,9 @@ function layerIndex(chunk: LayerChunk): number {
   return i < 0 ? 0 : i;
 }
 
+/** Far range ridge height above which there is snow. Lone peaks rise well above it. */
+const SNOW_LINE = 0.74;
+
 /** How far a back sheet's ridge is shifted in time, in seconds. Stays inside the neighbors. */
 const BACK_SHIFT = 1.3;
 
@@ -112,12 +115,8 @@ const paper: Style = {
       grain: piecePattern,
     };
 
-    // A lone peak gets snow before anything else is laid in front of it.
-    const objects = objectsAround(chunk, env.neighbors);
-    for (const o of objects) {
-      if (o.kind !== 'lone-peak') continue;
-      snowCap(pieces, o, line.xs, ys, line.hs, env.toX(o.t), env.toY);
-    }
+    // Snow on the high peaks of the far range, before anything is laid in front of it.
+    if (chunk.role === 'far-range') drawSnow(pieces, line.xs, ys, along, env.toY(SNOW_LINE));
 
     // Far and middle ranges get a second, lower sheet in front: foothills cut from a paper
     // between this layer's and the next one's, which doubles the sense of depth.
@@ -142,7 +141,7 @@ const paper: Style = {
       sheet(ctx, shade(color, -0.16), pattern, blur * 0.7, 0.3);
     }
 
-    for (const o of objects) {
+    for (const o of objectsAround(chunk, env.neighbors)) {
       if (o.kind === 'lone-peak') continue;
       const x = env.toX(o.t);
       if (x < -80 * k || x > env.width + 80 * k) continue;

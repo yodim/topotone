@@ -3,7 +3,14 @@ import { SyntheticSource } from '../src/audio/sources/synthetic';
 import { createRng } from '../src/core/rng';
 import { edgeOffset, roughLoop, roughen, type Roughness } from '../src/styles/shared/edges';
 import { css, hex, mix, ramp, shade } from '../src/styles/shared/palette';
-import { ridgeAt, sampleRidge, timeAt, waterRuns, waterValueAt } from '../src/styles/shared/ridge';
+import {
+  bandRuns,
+  ridgeAt,
+  sampleRidge,
+  timeAt,
+  waterRuns,
+  waterValueAt,
+} from '../src/styles/shared/ridge';
 import { catmullRom, smoothValues, traceSpline } from '../src/styles/shared/spline';
 import { strokeOutline } from '../src/styles/shared/stroke';
 import type { ChunkEnv } from '../src/styles/types';
@@ -132,6 +139,14 @@ describe('ridge helpers', () => {
       expect(line.hs[i]).toBe(ridgeAt(chunk, env.neighbors, t));
       expect(line.ys[i]).toBe(env.toY(line.hs[i] as number));
     }
+  });
+
+  it('finds the stretches where one line sits below another', () => {
+    const upper = [10, 10, 10, 10, 10, 10, 10, 10, 10, 10];
+    const lower = [9, 12, 12, 12, 12, 9, 12, 12, 9, 12];
+    // The run of four is kept, the run of two and the single sample are too short.
+    expect(bandRuns(upper, lower)).toEqual([[1, 4]]);
+    expect(bandRuns(upper, upper)).toEqual([]);
   });
 
   it('merges contiguous water cells into runs and blends their values', () => {

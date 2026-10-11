@@ -131,6 +131,10 @@ const PLAYHEAD = 0.5;
 const PLAYHEAD_SPEED = 0.5;
 /** Live input: open near-layer chunks are redrawn this often (seconds of new features). */
 const REVEAL_STEP = 0.25;
+/** Live input: how far, in seconds of music, an object can reach into the chunk before it. */
+const OVERHANG_SECONDS = 2;
+/** Live input: the land fades out over this many CSS pixels (at scale 1) at the live edge. */
+const LIVE_EDGE_FADE = 28;
 
 /** Seconds over which old land fades out after the world is rebuilt or the style changes. */
 const FADE_SECONDS = 0.5;
@@ -388,7 +392,10 @@ export class Renderer {
     }));
   }
 
-  /** Marks open chunks for redrawing once enough new live features have arrived. */
+  /**
+   * Marks open chunks for redrawing once enough new live features have arrived, and the
+   * chunk just before each while the live edge is close to its start.
+   */
   private refreshOpen(layer: LayerState, i: number): void {
     if (layer.revealed.size === 0) return;
     for (const [index, until] of layer.revealed) {
@@ -396,6 +403,9 @@ export class Renderer {
       if (complete || this.liveUntil - until >= REVEAL_STEP) {
         layer.revealed.delete(index);
         layer.strip.invalidateSlot(index);
+        // While the live edge is near this chunk's start, the chunk before it is redrawn too:
+        // a tree that has just appeared there overhangs into it, and would be cut in half.
+        if (until < chunkStart(index) + OVERHANG_SECONDS) layer.strip.invalidateSlot(index - 1);
       }
     }
   }
@@ -443,6 +453,18 @@ export class Renderer {
     }
     if (width > 0)
       target.drawImage(c.canvas, p.bleedPx, 0, width, p.heightPx, x, 0, width, p.heightPx);
+    // The land grows out of the mist at the live edge instead of ending in a straight cut.
+    if (width > 0 && width < p.chunkPx) {
+      const fade = Math.min(width, Math.round(LIVE_EDGE_FADE * this.scale * dpr));
+      const g = target.createLinearGradient(x + width - fade, 0, x + width, 0);
+      g.addColorStop(0, 'rgba(0, 0, 0, 0)');
+      g.addColorStop(1, 'rgba(0, 0, 0, 1)');
+      target.save();
+      target.globalCompositeOperation = 'destination-out';
+      target.fillStyle = g;
+      target.fillRect(x + width - fade, 0, fade, p.heightPx);
+      target.restore();
+    }
     this.chunkMs += performance.now() - started;
   }
 }

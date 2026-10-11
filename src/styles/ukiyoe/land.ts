@@ -16,6 +16,7 @@ import {
   timeAt,
   waterRuns,
   waterValueAt,
+  bandRuns,
   type RidgeLine,
 } from '../shared/ridge';
 import type { ChunkEnv } from '../types';
@@ -161,16 +162,7 @@ export function drawSnow(
   }
   const mx = MISREGISTER.x * k;
   const my = MISREGISTER.y * k;
-  let i = 0;
-  while (i < n) {
-    if ((bottoms[i] as number) <= (line.ys[i] as number) + 0.5) {
-      i++;
-      continue;
-    }
-    const start = i;
-    while (i < n && (bottoms[i] as number) > (line.ys[i] as number) + 0.5) i++;
-    const end = i - 1;
-    if (end - start < 2) continue;
+  for (const [start, end] of bandRuns(line.ys, bottoms)) {
     const trace = (dx: number, dy: number) => {
       ctx.beginPath();
       for (let j = start; j <= end; j++) {

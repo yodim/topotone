@@ -3,12 +3,13 @@
  * Every detail comes from the object's own seed, so a piece looks the same in both chunks
  * it overhangs and does not change when the chunk is redrawn under live input.
  */
-import { lerp } from '../../core/math';
+import { lerp, mod } from '../../core/math';
 import { createRng, type Rng } from '../../core/rng';
 import type { WorldObject } from '../../world/scene';
 import { noShadow, softShadow } from '../shared/canvas';
 import { roughLoop } from '../shared/edges';
 import { css, shade, type Rgb } from '../shared/palette';
+import { bandRuns } from '../shared/ridge';
 import { traceSpline } from '../shared/spline';
 import { shadow, type Papers } from './palette';
 
@@ -77,7 +78,7 @@ export function drawPiece(p: PieceContext, o: WorldObject, x: number, y: number)
       bird(p, o, x, y, rng);
       break;
     case 'lone-peak':
-      // Drawn with the ridge, see snowCap.
+      // The ridge already rises here, and the far range's snow line catches it.
       break;
   }
 }
@@ -241,49 +242,33 @@ function bird(p: PieceContext, o: WorldObject, x: number, y: number, rng: Rng): 
 }
 
 /**
- * Snow on a lone peak: the part of the ridge above a snow line, closed by a zigzag edge.
- * xs and ys are the ridge on screen, hs its heights.
+ * Snow on the far range: a piece cut along the ridge above the snow line, closed by a
+ * zigzag edge. It follows the ridge alone, so a cap that crosses a chunk edge is cut the
+ * same way on both sides, even under live input.
  */
-export function snowCap(
+export function drawSnow(
   p: PieceContext,
-  o: WorldObject,
   xs: ArrayLike<number>,
   ys: ArrayLike<number>,
-  hs: ArrayLike<number>,
-  peakX: number,
-  toY: (h: number) => number,
+  along: ArrayLike<number>,
+  snowY: number,
 ): void {
-  const n = hs.length;
-  // The highest point near the peak. It must be a real summit, not the end of a slope.
-  const reach = 60 * p.k;
-  let top = -1;
-  for (let i = 0; i < n; i++) {
-    if (Math.abs((xs[i] as number) - peakX) > reach) continue;
-    if (top < 0 || (hs[i] as number) > (hs[top] as number)) top = i;
-  }
-  if (top <= 0 || top >= n - 1) return;
-  if (Math.abs((xs[top] as number) - peakX) > reach * 0.9) return;
-  const line = (hs[top] as number) - (0.06 + 0.07 * o.size);
-  let a = top;
-  while (a > 0 && (hs[a - 1] as number) > line) a--;
-  let b = top;
-  while (b < n - 1 && (hs[b + 1] as number) > line) b++;
-  if (b - a < 2) return;
-  const rng = createRng(o.seed);
   const { ctx, k } = p;
-  const snowY = toY(line);
-  ctx.beginPath();
-  ctx.moveTo(xs[a] as number, snowY);
-  for (let i = a; i <= b; i++) ctx.lineTo(xs[i] as number, ys[i] as number);
-  // Back along a zigzag a little below the snow line.
-  const x0 = xs[a] as number;
-  const x1 = xs[b] as number;
-  const teeth = Math.max(2, Math.round((x1 - x0) / (7 * k)));
-  for (let i = teeth; i >= 0; i--) {
-    const zx = x0 + ((x1 - x0) * i) / teeth;
-    const dip = (i % 2 === 0 ? 0 : 1) * rng.range(3, 7) * k;
-    ctx.lineTo(zx, snowY + dip);
+  const n = xs.length;
+  const bottoms = new Float64Array(n);
+  for (let i = 0; i < n; i++) {
+    // A triangle wave along the layer: the teeth of the cut.
+    const saw = Math.abs(mod((along[i] as number) / 7, 2) - 1);
+    bottoms[i] = snowY + (1.5 + 6 * saw) * k;
   }
-  ctx.closePath();
-  cut(p, p.papers.snow, 3);
+  for (const [a, b] of bandRuns(ys, bottoms)) {
+    ctx.beginPath();
+    for (let i = a; i <= b; i++) {
+      if (i === a) ctx.moveTo(xs[i] as number, ys[i] as number);
+      else ctx.lineTo(xs[i] as number, ys[i] as number);
+    }
+    for (let i = b; i >= a; i--) ctx.lineTo(xs[i] as number, bottoms[i] as number);
+    ctx.closePath();
+    cut(p, p.papers.snow, 3);
+  }
 }

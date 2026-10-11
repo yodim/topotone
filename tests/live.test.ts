@@ -71,10 +71,17 @@ describe('live input', () => {
     state.known = 14;
     const b = world.chunk(FAR, 3);
     expect(b.ridge[0]).toBe(a.ridge[RIDGE_SAMPLES]);
+    // The slope carries over the edge too: no kink.
+    const slope = (r: Float32Array, i: number) => (r[i + 1] ?? 0) - (r[i] ?? 0);
+    expect(Math.abs(slope(b.ridge, 0) - slope(a.ridge, RIDGE_SAMPLES - 1))).toBeLessThan(0.002);
     // The ease stays gentle: no jump between neighboring samples.
     for (let i = 1; i <= RIDGE_SAMPLES; i++) {
       expect(Math.abs((b.ridge[i] ?? 0) - (b.ridge[i - 1] ?? 0))).toBeLessThan(0.05);
     }
+    // A chunk built next to one that is still easing carries on without a kink.
+    const c = world.chunk(FAR, 4);
+    expect(c.ridge[0]).toBe(b.ridge[RIDGE_SAMPLES]);
+    expect(Math.abs(slope(c.ridge, 0) - slope(b.ridge, RIDGE_SAMPLES - 1))).toBeLessThan(0.002);
   });
 
   it('builds the same world as before when not live', () => {
