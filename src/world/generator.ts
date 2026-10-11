@@ -5,7 +5,7 @@
  */
 import { FeatureCache } from '../audio/cache';
 import type { FeatureSource } from '../audio/features';
-import { clamp01, lerp, smoothstep } from '../core/math';
+import { clamp01, lerp } from '../core/math';
 import { hashSeed } from '../core/rng';
 import {
   MAPPING,
@@ -24,12 +24,23 @@ import {
   RIDGE_SAMPLES,
   chunkStart,
   type LayerChunk,
+  type LayerRole,
   type SkyState,
 } from './scene';
 import { ChunkStore } from './store';
 
-/** Live input: how long a far chunk takes to ease from its frozen neighbor's edge. */
-const LIVE_JOIN_SECONDS = 2;
+/**
+ * Live input: how a far chunk eases from its frozen neighbor's edge, in seconds. The gap in
+ * height and in slope at the edge dies away like a critically damped spring, mostly within
+ * three times this. The distant range scrolls slowly, so it gets the longest ease: a short
+ * one there shows as a cliff.
+ */
+const LIVE_JOIN_TAU: Partial<Record<LayerRole, number>> = { 'far-range': 5, 'mid-range': 2.5 };
+
+/** e^-x for small x (here below 0.02), by its series: arithmetic only, the same everywhere. */
+function expNegSmall(x: number): number {
+  return 1 - x * (1 - (x / 2) * (1 - (x / 3) * (1 - (x / 4) * (1 - x / 5))));
+}
 
 /** Sky states are computed per block of this many seconds, on a fixed grid. */
 const SKY_BLOCK_SECONDS = 4;
@@ -136,15 +147,24 @@ export class World {
     }
     // Live input: far layers are frozen when they first come into view, so neighbors can be
     // built from different amounts of audio. A chunk built next to a frozen one starts on its
-    // edge and eases into its own shape, so the join never shows as a step.
+    // edge, with its slope, and eases into its own shape. The ease only needs the neighbor's
+    // last two samples, so a chunk built next to one that is still easing simply carries on.
     const prev =
       this.causal && !isProgressive(layer) ? this.store.peek(layer, index - 1) : undefined;
+    const tau = LIVE_JOIN_TAU[spec.role];
     const edge = prev?.ridge[RIDGE_SAMPLES];
-    if (edge !== undefined) {
-      const offset = edge - (ridge[0] as number);
+    const beforeEdge = prev?.ridge[RIDGE_SAMPLES - 1];
+    if (edge !== undefined && beforeEdge !== undefined && tau !== undefined) {
+      const raw0 = ridge[0] as number;
+      const y0 = edge - raw0;
+      const v0 = (edge - beforeEdge - ((ridge[1] as number) - raw0)) / step;
+      // e(t) = (y0 + (v0 + y0 / tau) t) e^(-t / tau): value y0 and slope v0 at t = 0.
+      const q = expNegSmall(step / tau);
+      let decay = 1;
       for (let i = 0; i <= RIDGE_SAMPLES; i++) {
-        const w = 1 - smoothstep(0, LIVE_JOIN_SECONDS, i * step);
-        ridge[i] = clamp01((ridge[i] as number) + offset * w);
+        const t = i * step;
+        ridge[i] = clamp01((ridge[i] as number) + (y0 + (v0 + y0 / tau) * t) * decay);
+        decay *= q;
       }
     }
 
