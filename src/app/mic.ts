@@ -1,7 +1,8 @@
 /** Turning the microphone on and off, with short friendly messages when it cannot start. */
 import { MicSource } from '../audio/sources/mic';
 import type { SourceManager } from '../audio/sources/manager';
-import { audioContext } from './songs';
+import { isTouch } from './device';
+import { audioContext, setAudioSession } from './songs';
 import type { Status } from './status';
 
 function reason(err: unknown): string {
@@ -11,6 +12,9 @@ function reason(err: unknown): string {
   }
   if (name === 'NotFoundError' || name === 'OverconstrainedError') {
     return 'No microphone was found. The landscape keeps going on its own.';
+  }
+  if (name === 'NotReadableError' || name === 'AbortError') {
+    return 'The microphone is busy, maybe in another app. The landscape keeps going on its own.';
   }
   return 'The microphone could not start. The landscape keeps going on its own.';
 }
@@ -37,11 +41,14 @@ export class MicSwitch {
     this.opening = true;
     this.status.show('Asking for the microphone…', { stay: true });
     try {
+      setAudioSession('play-and-record');
       const ctx = audioContext();
       await ctx.resume();
       const mic = await MicSource.open(ctx);
       this.manager.playSong(mic);
-      this.status.show('Listening. Press Mic (or M) to stop.');
+      this.status.show(
+        isTouch() ? 'Listening. Tap Mic to stop.' : 'Listening. Press Mic (or M) to stop.',
+      );
     } catch (err) {
       console.warn(err);
       this.status.show(reason(err), { error: true });

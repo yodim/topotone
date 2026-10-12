@@ -16,6 +16,8 @@ Every action has a button along the bottom of the page, so it all works by touch
 - In the top left corner, **Fullscreen** (`F`) and **About** (`A`): what Topotone is, the keys, privacy and credits. `Escape` closes a panel.
 - `D` shows the feature meters, the playhead and the frame rate.
 
+With reduced motion turned on in the system settings, the landscape's own music runs at half speed, fades are slower and the mist drifts less. Songs and the mic keep real time.
+
 The address holds the rest:
 
 - `?seed=river` picks a world. Any text or number works, and the same seed always gives the same world. Without one, a random seed is chosen and written into the address bar. New world writes its seed there too.

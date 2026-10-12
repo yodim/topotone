@@ -66,6 +66,28 @@ test('a file that is not audio gives a friendly message', async ({ page }) => {
     mimeType: 'text/plain',
     buffer: Buffer.from('not a song'),
   });
-  await expect(page.locator('#status')).toContainText('Could not read notes.txt');
+  await expect(page.locator('#status')).toContainText('notes.txt is not a sound file');
+  expect((await page.evaluate(() => window.topotone?.source()))?.kind).toBe('synthetic');
+});
+
+test('a damaged or silent song gives a friendly message', async ({ page }) => {
+  await page.goto('./?seed=7');
+  await page.waitForFunction(() => (window.topotone?.stats().chunksRendered ?? 0) > 0);
+  const input = page.locator('#file-input');
+
+  // Looks like an mp3, but the browser cannot decode it.
+  await input.setInputFiles({
+    name: 'broken.mp3',
+    mimeType: 'audio/mpeg',
+    buffer: Buffer.alloc(4096, 7),
+  });
+  await expect(page.locator('#status')).toContainText('Could not read broken.mp3');
+
+  await input.setInputFiles({
+    name: 'quiet.wav',
+    mimeType: 'audio/wav',
+    buffer: Buffer.from(encodeWav({ samples: new Float32Array(44100 * 2), sampleRate: 44100 })),
+  });
+  await expect(page.locator('#status')).toContainText('quiet.wav is silent');
   expect((await page.evaluate(() => window.topotone?.source()))?.kind).toBe('synthetic');
 });

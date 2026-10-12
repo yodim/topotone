@@ -73,12 +73,22 @@ export class SourceManager implements FeatureSource {
   /** World time while no song drives the clock. */
   private freeTime = 0;
   private paused = false;
+  /** Extra factor on the free-running clock, for reduced motion. Songs keep real time. */
+  private pace = 1;
 
   constructor(
     private landscape: SyntheticSource,
     private readonly speed = 1,
   ) {
     this.hopSeconds = landscape.hopSeconds;
+  }
+
+  /**
+   * How fast the landscape's own music runs, on top of ?speed: 0.5 under reduced motion. A
+   * song or the mic always runs in real time, so the land stays with what is heard.
+   */
+  setPace(pace: number): void {
+    this.pace = pace;
   }
 
   /** The landscape's own music, filling all time no song covers. */
@@ -116,7 +126,7 @@ export class SourceManager implements FeatureSource {
       this.freeTime = c.start + c.song.duration;
       this.current = null;
     }
-    if (!this.paused) this.freeTime += dt * this.speed;
+    if (!this.paused) this.freeTime += dt * this.speed * this.pace;
   }
 
   now(): number {
