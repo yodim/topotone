@@ -4,6 +4,7 @@
  * analyzer; the mic is never connected to the speakers.
  */
 import type { FeatureFrame, FeatureSource } from '../features';
+import { FrameStore } from '../framestore';
 import { StreamAnalyzer } from '../stream';
 import workletUrl from '../mic.worklet.ts?worker&url';
 
@@ -14,7 +15,8 @@ export class MicSource implements FeatureSource {
   readonly name = 'microphone';
   readonly duration = Infinity;
   readonly hopSeconds: number;
-  private readonly history: FeatureFrame[] = [];
+  /** Every frame heard so far, packed: the export can rebuild the whole session. */
+  private readonly history = new FrameStore();
   private readonly analyzer: StreamAnalyzer;
   /** Context frame index of the first sample, once known. */
   private firstFrame: number | null = null;
@@ -83,34 +85,35 @@ export class MicSource implements FeatureSource {
 
   /** Source time up to which frames are final. */
   knownUntil(): number {
-    const last = this.history[this.history.length - 1];
-    return last ? last.t + this.hopSeconds : 0;
+    const n = this.history.length;
+    return n > 0 ? this.history.timeOf(n - 1) + this.hopSeconds : 0;
   }
 
   frames(from: number, to: number): FeatureFrame[] {
-    return this.history.slice(this.indexAt(from), this.indexAt(to));
+    return this.history.slice(this.history.indexAt(from), this.history.indexAt(to));
   }
 
   /** The frame in effect at t. Past the newest frame, the newest one holds. */
   frameAt(t: number): FeatureFrame {
-    const i = Math.min(Math.max(this.indexAt(t + 1e-9) - 1, 0), this.history.length - 1);
-    return (
-      this.history[i] ?? {
-        t,
-        rms: 0,
-        low: 0,
-        mid: 0,
-        high: 0,
-        centroid: 0,
-        flux: 0,
-        onset: 0,
-        onsetLow: 0,
-        onsetMid: 0,
-        onsetHigh: 0,
-        pitch: null,
-        pitchConfidence: 0,
-      }
-    );
+    const n = this.history.length;
+    if (n > 0) {
+      return this.history.frame(Math.min(Math.max(this.history.indexAt(t + 1e-9) - 1, 0), n - 1));
+    }
+    return {
+      t,
+      rms: 0,
+      low: 0,
+      mid: 0,
+      high: 0,
+      centroid: 0,
+      flux: 0,
+      onset: 0,
+      onsetLow: 0,
+      onsetMid: 0,
+      onsetHigh: 0,
+      pitch: null,
+      pitchConfidence: 0,
+    };
   }
 
   lookahead(): number {
@@ -129,16 +132,5 @@ export class MicSource implements FeatureSource {
     this.node.disconnect();
     this.sink.disconnect();
     for (const track of this.stream.getTracks()) track.stop();
-  }
-
-  private indexAt(t: number): number {
-    let lo = 0;
-    let hi = this.history.length;
-    while (lo < hi) {
-      const mid = (lo + hi) >>> 1;
-      if ((this.history[mid] as FeatureFrame).t < t) lo = mid + 1;
-      else hi = mid;
-    }
-    return lo;
   }
 }

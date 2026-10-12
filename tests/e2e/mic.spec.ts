@@ -27,6 +27,14 @@ test('the mic drives the world live, and M hands back to the fallback', async ({
   expect(onsets.length).toBeGreaterThan(0);
   await page.screenshot({ path: 'test-results/mic.png' });
 
+  // The session so far, rebuilt from the packed history, exports as a panorama.
+  const pano = await page.evaluate(async () => {
+    const p = await window.topotone?.panorama({ height: 360 });
+    return p ? { width: p.layout.width, height: p.canvas.height, from: p.layout.t0 } : null;
+  });
+  expect(pano?.height).toBe(360);
+  expect(pano?.width).toBeGreaterThan(50);
+
   // Space cannot pause the mic, and says so.
   await page.keyboard.press(' ');
   await expect(page.locator('#status')).toContainText('cannot pause');
