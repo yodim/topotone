@@ -24,7 +24,8 @@
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json",
-    "fixtures": "node scripts/write-fixtures.ts"
+    "fixtures": "node scripts/write-fixtures.ts",
+    "media": "vite build && node scripts/media.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
