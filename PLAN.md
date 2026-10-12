@@ -439,8 +439,17 @@ Notes from 6b:
 - [ ] README: one-line pitch, animated GIF and screenshots of the three styles, live demo link, the pipeline diagram, the mapping table, how to run it locally
 - [ ] `CONTRIBUTING.md` with two walkthroughs: "Add a style" (from `_template` to a working style) and "Tune the mapping"
 - [ ] `CODE_OF_CONDUCT.md`, issue templates (bug, new style proposal, mapping idea), pull request template
-- [ ] Social preview image generated from the app itself
+- [x] Social preview image generated from the app itself
 - [ ] A handful of "good first issue" tickets: watercolor style, pixel art style, night sky with stars, weather, seasons, MIDI input
+
+Phase 7 runs in three pull requests: 7a for the animation and the social preview, 7b for the README, `CONTRIBUTING.md` and the community files, 7c for packing the mic's history before the 1.0.0 tag. The starter issues are opened once 7b is merged, so they can link to `CONTRIBUTING.md`.
+
+Notes from 7a:
+
+- `npm run media` builds the app and writes `docs/topotone.gif` and `docs/social-preview.jpg` from it (`scripts/media.ts`). The page runs on Playwright's fake clock, paused and stepped by hand, so both files come out byte for byte the same on every run. An installed clock that is not paused still follows real time, and frames slip.
+- The animation: seed `river`, 720 × 300 at 12.5 frames per second for 8 s, drawn at twice the size and scaled down. Paper, then ink after 2.6 s, then ukiyo-e after 5.3 s. About 3.9 MB.
+- The GIF encoder (`scripts/gif.ts`) is written here, like the FFT: one median cut palette for the whole animation, each frame stored as the pixels that changed inside their bounding box, and GIF's LZW. A unit test decodes it back, and the script checks the first frame in Chromium. The blue washes of ukiyo-e show some banding at 255 colors.
+- The social preview: the same moment of the same world (24 s in) in three slanted bands, with the title on the ink band's rice paper and each style's name at the foot of its band. 1280 × 640, about 125 KB. GitHub does not let it be set from the API: it is uploaded by hand under Settings, General, Social preview.
 
 ## Design notes and known traps
 

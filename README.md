@@ -73,6 +73,7 @@ npm run test:e2e   # browser tests (run `npx playwright install chromium` once f
 npm run lint       # eslint and prettier check
 npm run typecheck  # tsc
 npm run fixtures   # write the test signals as WAV files to tests/fixtures/out/
+npm run media      # remake docs/topotone.gif and docs/social-preview.jpg from the app
 ```
 
 ## License
