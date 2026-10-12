@@ -10,7 +10,7 @@
 import type { Rng } from '../core/rng';
 import type { LayerChunk, SkyState } from '../world/scene';
 
-/** Given once, when the style is selected. */
+/** Given when the style is first used, and again each time the world gets a new seed. */
 export interface StyleEnv {
   /** World seed, for textures and palettes that should vary per world. */
   seed: number;
@@ -99,7 +99,10 @@ export interface Style {
   name: string;
   description: string;
   author: string;
-  /** Once, when the style is selected: build textures and palettes. */
+  /**
+   * When the style is first used: build textures and palettes. It runs again with each new
+   * seed (a new world), so rebuild everything that depends on the seed, caches included.
+   */
   setup?(env: StyleEnv): void | Promise<void>;
   /** Every frame. Keep it cheap. */
   drawSky(ctx: CanvasRenderingContext2D, sky: SkyState, view: View): void;

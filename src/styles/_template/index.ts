@@ -32,8 +32,9 @@ const template: Style = {
   description: 'Flat silhouettes. A starting point for new styles.',
   author: 'Your name',
 
-  // Optional. Runs once when the style is selected: build textures and palettes here, from
-  // env.seed (for example makeGrainTile from ../shared/grain). Never in the draw calls.
+  // Optional. Runs when the style is first used, and again for each new seed: build textures
+  // and palettes here, from env.seed (for example makeGrainTile from ../shared/grain). Never in
+  // the draw calls. Anything cached from the old seed must be rebuilt or keyed by the seed.
   setup() {},
 
   // Rule: runs every frame, keep it cheap. One gradient fill is fine; per-pixel work is not.

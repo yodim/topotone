@@ -207,6 +207,10 @@ Phase 5:
 
 - `Style.drawSkyStrip` added, optional, with `SkyStrip`: the panorama export draws the sky behind the whole image once, reading the sky along it with `skyAt`, so the sun and clouds are placed once instead of in every tile. Styles without it get `drawSky` in overlapping, blended tiles.
 
+Phase 6:
+
+- `Style.setup` runs again each time the world gets a new seed (New world, or `S`), not only once. A style rebuilds everything that depends on the seed, caches included: the three styles now key their sky caches by the seed.
+
 ## Phases
 
 Each phase ends with all checks green, boxes ticked here, a commit, and a short summary. One phase per session.

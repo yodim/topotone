@@ -41,7 +41,13 @@ function inks(sky: SkyState): SkyInks {
 export function drawSky(ctx: CanvasRenderingContext2D, sky: SkyState, view: View): void {
   const s = inks(sky);
   const q = (c: Rgb) => c.map((v) => Math.round(v / 3)).join(',');
-  const key = [q(s.top), q(s.horizon), Math.round(s.reach * 100), Math.round(s.dusk * 30)];
+  const key = [
+    look().seed,
+    q(s.top),
+    q(s.horizon),
+    Math.round(s.reach * 100),
+    Math.round(s.dusk * 30),
+  ];
   const sheet = cache.get(view, key.join('|'), (c) => paintSky(c, s, view));
   if (sheet) ctx.drawImage(sheet, 0, 0, view.width, view.height);
   else paintSky(ctx, s, view);
