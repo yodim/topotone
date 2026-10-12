@@ -31,6 +31,19 @@ test('the mic drives the world live, and M hands back to the fallback', async ({
   await page.keyboard.press(' ');
   await expect(page.locator('#status')).toContainText('cannot pause');
 
+  // A new world keeps listening, and the land keeps growing at the live edge.
+  const rendered = await page.evaluate(() => window.topotone?.stats().chunksRendered ?? 0);
+  await page.keyboard.press('s');
+  await expect(page.locator('#status')).toContainText('A new world');
+  await page.waitForTimeout(1500);
+  const renewed = await page.evaluate(() => window.topotone?.source());
+  expect(renewed?.kind).toBe('mic');
+  expect(renewed?.live).toBeGreaterThan(live?.live ?? 0);
+  expect(await page.evaluate(() => window.topotone?.stats().chunksRendered ?? 0)).toBeGreaterThan(
+    rendered + 20,
+  );
+  await page.screenshot({ path: 'test-results/mic-new-world.png' });
+
   await page.keyboard.press('m');
   await expect(page.locator('#status')).toContainText('Microphone off');
   await expect(button).toHaveAttribute('aria-pressed', 'false');
