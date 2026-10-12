@@ -408,9 +408,9 @@ Notes from Phase 5:
 - [x] Minimal control bar that fades out when idle: Song, Mic, Style, Seed (shuffle), Export, Fullscreen, About
 - [x] Drag and drop anywhere on the page
 - [x] Keyboard: `Space` play or pause, `1` to `3` styles, `S` new seed, `D` debug, `F` fullscreen, `E` export
-- [ ] Tap to start on mobile for audio, with the fallback already running behind
-- [ ] `prefers-reduced-motion`: slower scroll, no flashing crossfades
-- [ ] Short friendly errors: unsupported file, decode failure, mic denied
+- [x] Tap to start on mobile for audio, with the fallback already running behind
+- [x] `prefers-reduced-motion`: slower scroll, no flashing crossfades
+- [x] Short friendly errors: unsupported file, decode failure, mic denied
 - [x] About panel: what it is, privacy (audio never leaves the device), repo link, credits
 
 **Done when:** it works and feels good on a phone and a laptop, and someone who has never seen it understands what to do within a few seconds.
@@ -425,6 +425,14 @@ Notes from 6a:
 - New world (`S`, the plan's "seed shuffle") rebuilds in place: a new seed for the land and for the landscape's own music, written into the address. A song or the mic keeps playing. Each style is set up again for the new seed (see the contract change log), the last frame stays on top as a still picture until the new land is drawn, then fades out. It waits while an export runs.
 - `A` (or `?`) opens About: what Topotone is, what the buttons do, the keys (only on devices with a mouse), the privacy line, the seed as written in the address, credits and the repo link. It is a modal `dialog`; `Escape`, Close or a click outside closes it.
 - The first seconds: the status line says "Drop a song here, or press Song or Mic, and the land will follow the sound" ("Tap Song or Mic…" on touch screens) for 6 s, or until the first touch or key. While a file is dragged over the page, a dashed veil says "Drop to play".
+
+Notes from 6b:
+
+- Audio on phones: the Song button (and `O`) wakes the audio context inside the tap, with one silent sample for older iOS, before the file picker opens. A song is analyzed after the tap is over, and iOS would otherwise refuse to start it. If the browser still wants a gesture, the status line asks for a tap. Safari's audio session is set to `playback` for songs, so they are heard with the ringer switch on silent, and to `play-and-record` for the mic. When the page comes back from the background with the audio still stopped, a tap continues the song. None of this can be tested in headless Chromium; it needs a real iPhone.
+- Messages on touch screens say "tap" and never name keys.
+- Reduced motion (`prefers-reduced-motion: reduce`, followed live): the landscape's own music runs at half speed, so the land looks the same and moves slower. Fades take 1.5 s instead of 0.5 s, and mist and clouds drift at half speed (`View.clock` runs at half speed). A song or the mic keeps real time, to stay with what is heard.
+- Errors: a file whose type or name is not audio is turned away before decoding ("notes.txt is not a sound file"), as are an empty file and anything over 150 MB, since a one hour mp3 decodes to over a gigabyte of samples. After decoding, a silent song says so. A mic held by another app gets its own message, next to the existing ones for a blocked or missing mic and an unreadable file.
+- Upright phones: the view scale is the height against 1080 px, capped at 1.6 times the width. A 390 px wide phone now shows about 10 s of music instead of 8, with smaller trees. A cap of 1.2 showed 14 s but turned the mountains into needles. Views held sideways, tablets held upright and the export are unchanged.
 
 ### Phase 7: Open source release
 
