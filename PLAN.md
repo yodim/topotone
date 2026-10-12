@@ -436,9 +436,9 @@ Notes from 6b:
 
 ### Phase 7: Open source release
 
-- [ ] README: one-line pitch, animated GIF and screenshots of the three styles, live demo link, the pipeline diagram, the mapping table, how to run it locally
-- [ ] `CONTRIBUTING.md` with two walkthroughs: "Add a style" (from `_template` to a working style) and "Tune the mapping"
-- [ ] `CODE_OF_CONDUCT.md`, issue templates (bug, new style proposal, mapping idea), pull request template
+- [x] README: one-line pitch, animated GIF and screenshots of the three styles, live demo link, the pipeline diagram, the mapping table, how to run it locally
+- [x] `CONTRIBUTING.md` with two walkthroughs: "Add a style" (from `_template` to a working style) and "Tune the mapping"
+- [x] `CODE_OF_CONDUCT.md`, issue templates (bug, new style proposal, mapping idea), pull request template
 - [x] Social preview image generated from the app itself
 - [ ] A handful of "good first issue" tickets: watercolor style, pixel art style, night sky with stars, weather, seasons, MIDI input
 
@@ -450,6 +450,13 @@ Notes from 7a:
 - The animation: seed `river`, 720 × 300 at 12.5 frames per second for 8 s, drawn at twice the size and scaled down. Paper, then ink after 2.6 s, then ukiyo-e after 5.3 s. About 3.9 MB.
 - The GIF encoder (`scripts/gif.ts`) is written here, like the FFT: one median cut palette for the whole animation, each frame stored as the pixels that changed inside their bounding box, and GIF's LZW. A unit test decodes it back, and the script checks the first frame in Chromium. The blue washes of ukiyo-e show some banding at 255 colors.
 - The social preview: the same moment of the same world (24 s in) in three slanted bands, with the title on the ink band's rice paper and each style's name at the foot of its band. 1280 × 640, about 125 KB. GitHub does not let it be set from the API: it is uploaded by hand under Settings, General, Social preview.
+
+Notes from 7b:
+
+- The README opens with the pitch, the live link and the animation, then the three styles side by side (seed `river`), how to use it, how it works with the pipeline and the mapping table, how to run it, the layout and how to contribute. Nothing from the earlier README was dropped.
+- `CONTRIBUTING.md`: getting started, the rules that keep the world seamless, then the two walkthroughs. "Add a style" goes from copying `_template` to the screenshot test in ten steps. "Tune the mapping" covers `?tune`, what each group of `MAPPING` shapes, sharing Copy JSON in an issue, and the musical tests that guard the defaults.
+- `CODE_OF_CONDUCT.md` is the Contributor Covenant 2.1 as published. Reports go to the maintainer on GitHub, with no email address: someone who needs privacy opens an issue that only asks for a private way to talk, and GitHub's own reporting tools are linked too.
+- Issue forms for a bug (with the address, so the seed and style come along), a new style and a mapping idea (with a JSON field for Copy JSON). They use the default `bug` and `enhancement` labels. Blank issues stay allowed. The pull request template lists the checks and asks for screenshots of anything visible.
 
 ## Design notes and known traps
 
