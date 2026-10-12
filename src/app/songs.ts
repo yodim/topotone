@@ -1,12 +1,19 @@
 /**
- * Loading a song: decode, analyze in a worker with progress, then hand over a FileSource.
+ * Loading a song: check the file, decode, analyze in a worker with progress, then hand over a
+ * FileSource.
  * A newer file cancels the one still loading. Audio never leaves the device.
  */
 import { analyzeInWorker, hopSecondsFor, mixToMono } from '../audio/analysis';
 import { FileSource, Track } from '../audio/sources/file';
+import { SILENCE_PEAK, checkSongFile, peak } from './audiofile';
 import type { Status } from './status';
 
 let context: AudioContext | null = null;
+
+/** False in a browser without Web Audio, where songs and the mic cannot work. */
+export function canPlayAudio(): boolean {
+  return typeof AudioContext !== 'undefined';
+}
 
 /** The shared AudioContext, created on first use. */
 export function audioContext(): AudioContext {
@@ -48,6 +55,17 @@ export class SongLoader {
   ) {}
 
   async load(file: File): Promise<void> {
+    if (!canPlayAudio()) {
+      this.status.show('This browser cannot play songs. The landscape keeps going on its own.', {
+        error: true,
+      });
+      return;
+    }
+    const problem = checkSongFile(file);
+    if (problem) {
+      this.status.show(problem, { error: true });
+      return;
+    }
     this.pending?.abort();
     const job = new AbortController();
     this.pending = job;
@@ -68,11 +86,20 @@ export class SongLoader {
       return;
     }
     if (job.signal.aborted) return;
+    const mono = mixToMono(buffer);
+    if (mono.length === 0) {
+      this.status.show(`${file.name} is empty.`, { error: true });
+      return;
+    }
+    if (peak(mono) < SILENCE_PEAK) {
+      this.status.show(`${file.name} is silent, so there is nothing to follow.`, { error: true });
+      return;
+    }
 
     let frames;
     try {
       frames = await analyzeInWorker(
-        mixToMono(buffer),
+        mono,
         buffer.sampleRate,
         (p) => this.status.show(`Listening to ${name}… ${Math.round(p * 100)}%`, { stay: true }),
         job.signal,
@@ -83,7 +110,11 @@ export class SongLoader {
       this.status.show(`Something went wrong while listening to ${name}.`, { error: true });
       return;
     }
-    if (job.signal.aborted || frames.length === 0) return;
+    if (job.signal.aborted) return;
+    if (frames.length === 0) {
+      this.status.show(`${file.name} is too short to draw anything.`, { error: true });
+      return;
+    }
 
     await whenRunning(ctx, this.status);
     if (job.signal.aborted) return;

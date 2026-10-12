@@ -12,6 +12,9 @@ function reason(err: unknown): string {
   if (name === 'NotFoundError' || name === 'OverconstrainedError') {
     return 'No microphone was found. The landscape keeps going on its own.';
   }
+  if (name === 'NotReadableError' || name === 'AbortError') {
+    return 'The microphone is busy, maybe in another app. The landscape keeps going on its own.';
+  }
   return 'The microphone could not start. The landscape keeps going on its own.';
 }
 

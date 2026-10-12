@@ -69,3 +69,15 @@ test('a denied mic gives a short message and the fallback keeps going', async ({
   expect(after?.kind).toBe('synthetic');
   expect(after?.now ?? 0).toBeGreaterThan(before);
 });
+
+test('a mic in use elsewhere says so', async ({ page }) => {
+  await page.addInitScript(() => {
+    navigator.mediaDevices.getUserMedia = () =>
+      Promise.reject(new DOMException('Could not start audio source', 'NotReadableError'));
+  });
+  await page.goto('./?seed=7');
+  await page.waitForFunction(() => (window.topotone?.stats().chunksRendered ?? 0) > 0);
+  await page.locator('#mic-button').click();
+  await expect(page.locator('#status')).toContainText('The microphone is busy');
+  expect((await page.evaluate(() => window.topotone?.source()))?.kind).toBe('synthetic');
+});
