@@ -440,7 +440,7 @@ Notes from 6b:
 - [x] `CONTRIBUTING.md` with two walkthroughs: "Add a style" (from `_template` to a working style) and "Tune the mapping"
 - [x] `CODE_OF_CONDUCT.md`, issue templates (bug, new style proposal, mapping idea), pull request template
 - [x] Social preview image generated from the app itself
-- [ ] A handful of "good first issue" tickets: watercolor style, pixel art style, night sky with stars, weather, seasons, MIDI input
+- [x] A handful of "good first issue" tickets: watercolor style, pixel art style, night sky with stars, weather, seasons, MIDI input
 
 Phase 7 runs in three pull requests: 7a for the animation and the social preview, 7b for the README, `CONTRIBUTING.md` and the community files, 7c for packing the mic's history before the 1.0.0 tag. The starter issues are opened once 7b is merged, so they can link to `CONTRIBUTING.md`.
 
@@ -457,6 +457,12 @@ Notes from 7b:
 - `CONTRIBUTING.md`: getting started, the rules that keep the world seamless, then the two walkthroughs. "Add a style" goes from copying `_template` to the screenshot test in ten steps. "Tune the mapping" covers `?tune`, what each group of `MAPPING` shapes, sharing Copy JSON in an issue, and the musical tests that guard the defaults.
 - `CODE_OF_CONDUCT.md` is the Contributor Covenant 2.1 as published. Reports go to the maintainer on GitHub, with no email address: someone who needs privacy opens an issue that only asks for a private way to talk, and GitHub's own reporting tools are linked too.
 - Issue forms for a bug (with the address, so the seed and style come along), a new style and a mapping idea (with a JSON field for Copy JSON). They use the default `bug` and `enhancement` labels. Blank issues stay allowed. The pull request template lists the checks and asks for screenshots of anything visible.
+
+Notes from 7c:
+
+- Six starter issues are open. Labelled `good first issue`, since they only touch one style: stars in the dusk sky (#15), a pixel art style (#16) and rain in dramatic passages (#17). Labelled `help wanted`, since they are bigger or touch generation and sources: a watercolor style (#18), seasons that follow a song (#19) and MIDI input (#20). Each says where to start, what to keep in mind and when it is done.
+- The mic's history is packed into typed arrays (`src/audio/framestore.ts`): blocks of 4096 frames, one column per field, time in 64 bits and the rest in 32, a missing pitch as NaN. Kept as objects, a frame measured about 290 bytes in V8, close to 100 MB for an hour of listening (more than the 60 MB guessed before). Packed, it is 56 bytes, about 19 MB an hour, and growing never copies what is already held. The live view and the export both read the same packed values, so they still match.
+- Version 1.0.0 in `package.json`, tagged `v1.0.0` on main once this is merged.
 
 ## Design notes and known traps
 
@@ -488,6 +494,8 @@ Notes from 7b:
 
 ## Open decisions
 
-- Name: "Topotone" is a placeholder
-- License: MIT proposed
-- Hosting: GitHub Pages proposed
+Settled for version 1.0:
+
+- Name: Topotone
+- License: MIT
+- Hosting: GitHub Pages, at https://yodim.github.io/topotone/
