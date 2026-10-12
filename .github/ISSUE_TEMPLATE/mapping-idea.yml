@@ -1,0 +1,44 @@
+name: Mapping idea
+description: How the music turns into land, and how it could do better.
+title: 'Mapping: '
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Add ?tune to the address to try it live: every value of the mapping has a slider, and
+        Copy JSON gives the ones you changed. "Tune the mapping" in CONTRIBUTING.md explains
+        each group. Please never attach audio: describe the music instead.
+  - type: textarea
+    id: heard
+    attributes:
+      label: What you heard
+      description: The genre, the tempo, the passage. "The quiet piano intro", "the drop at 1:10".
+    validations:
+      required: true
+  - type: textarea
+    id: saw
+    attributes:
+      label: What the land did
+    validations:
+      required: true
+  - type: textarea
+    id: wanted
+    attributes:
+      label: What you expected, or would like
+    validations:
+      required: true
+  - type: dropdown
+    id: source
+    attributes:
+      label: Song or microphone
+      options:
+        - A song
+        - The microphone
+        - Both
+  - type: textarea
+    id: json
+    attributes:
+      label: Tuning values
+      description: Paste the Copy JSON output from ?tune, if you tried some.
+      render: json

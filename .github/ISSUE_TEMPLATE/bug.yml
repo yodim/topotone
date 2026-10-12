@@ -1,0 +1,51 @@
+name: Bug
+description: Something looks wrong or does not work.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Thanks for taking the time. Please never attach audio files: describe the song or the
+        sound instead.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+  - type: textarea
+    id: steps
+    attributes:
+      label: How to make it happen
+      placeholder: |
+        1. Open https://yodim.github.io/topotone/?seed=river&style=ink
+        2. Press Mic
+        3. ...
+  - type: input
+    id: address
+    attributes:
+      label: The address
+      description: The whole address from the address bar. It holds the seed and the style, so the same world can be brought back.
+  - type: dropdown
+    id: source
+    attributes:
+      label: What was driving the land
+      options:
+        - The landscape on its own
+        - A song
+        - The microphone
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and device
+      placeholder: Firefox 131 on a laptop, or Safari on an iPhone 13
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Screenshots or errors from the console
