@@ -427,7 +427,7 @@ export class Renderer {
     if (key === this.surfaceKey) return;
     this.surfaceKey = key;
     this.dpr = surface.dpr;
-    this.scale = viewScale(surface.cssHeight);
+    this.scale = viewScale(surface.cssHeight, surface.cssWidth);
 
     const projections = LAYERS.map((spec) => projectLayer(spec, surface));
     const slotsFor = (p: LayerProjection) => Math.ceil(surface.width / p.chunkPx) + 2;

@@ -23,8 +23,15 @@ export function parallax(depth: number): number {
   return PARALLAX_HORIZON + (1 - PARALLAX_HORIZON) * depth;
 }
 
-export function viewScale(heightCss: number): number {
-  return heightCss / REFERENCE_HEIGHT;
+/**
+ * A view held upright (a phone in portrait) is sized by its width too: sized by its height
+ * alone, a phone would show about 8 s of music with very large trees.
+ */
+export const PORTRAIT_WIDTH_FACTOR = 1.6;
+
+/** Size multiplier for a view: its height against 1080 px, capped by its width when upright. */
+export function viewScale(heightCss: number, widthCss = Infinity): number {
+  return Math.min(heightCss, PORTRAIT_WIDTH_FACTOR * widthCss) / REFERENCE_HEIGHT;
 }
 
 interface LayerFrame {
@@ -59,11 +66,11 @@ export interface LayerProjection {
 }
 
 export function projectLayer(spec: LayerSpec, surface: Surface): LayerProjection {
-  const { dpr, cssHeight } = surface;
-  const scale = viewScale(cssHeight);
+  const { dpr, cssHeight, cssWidth } = surface;
+  const scale = viewScale(cssHeight, cssWidth);
   const ideal = BASE_PX_PER_SECOND * scale * parallax(spec.depth);
   const chunkPx = Math.max(1, Math.round(CHUNK_SECONDS * ideal * dpr));
-  return frameLayer(spec, cssHeight, dpr, chunkPx);
+  return frameLayer(spec, cssHeight, dpr, chunkPx, scale);
 }
 
 /**
@@ -75,17 +82,17 @@ export function projectPanoramaLayer(
   height: number,
   chunkPx: number,
 ): LayerProjection {
-  return frameLayer(spec, height, 1, chunkPx);
+  return frameLayer(spec, height, 1, chunkPx, viewScale(height));
 }
 
-/** A layer's projection for a view of this height, given how wide a chunk is. */
+/** A layer's projection for a view of this height, given how wide a chunk is and its scale. */
 function frameLayer(
   spec: LayerSpec,
   cssHeight: number,
   dpr: number,
   chunkPx: number,
+  scale: number,
 ): LayerProjection {
-  const scale = viewScale(cssHeight);
   const pxPerSecond = chunkPx / dpr / CHUNK_SECONDS;
   const bleedPx = Math.min(Math.round(BLEED_PX * scale * dpr), chunkPx);
   const frame = LAYER_FRAMES[spec.role];
