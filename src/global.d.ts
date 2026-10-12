@@ -10,6 +10,10 @@ declare global {
   interface HTMLElement {
     webkitRequestFullscreen?: () => void;
   }
+  /** Safari's audio session (16.4 and later). */
+  interface Navigator {
+    audioSession?: { type: string };
+  }
 
   interface Window {
     /** Seed and live stats. Handy in the console, and used by the end-to-end tests. */

@@ -1,5 +1,6 @@
 import { About } from './app/about';
 import { bindControls } from './app/controls';
+import { isTouch } from './app/device';
 import { Exporter } from './app/exporter';
 import { bindFiles } from './app/files';
 import {
@@ -12,7 +13,7 @@ import { bindKeys } from './app/keyboard';
 import { Meters } from './app/meters';
 import { MicSwitch } from './app/mic';
 import { parseParams, seedFromText } from './app/params';
-import { SongLoader, audioContext } from './app/songs';
+import { SongLoader, audioContext, keepSongsPlaying, unlockAudio } from './app/songs';
 import { Status } from './app/status';
 import { createTunePanel, restoreTuning } from './app/tune';
 import { SourceManager } from './audio/sources/manager';
@@ -154,8 +155,9 @@ const togglePause = () => {
     return;
   }
   if (!manager.isPaused) status.hide();
-  else if (manager.song) status.show('Paused. Press Play or Space to continue.', { stay: true });
-  else status.show('Paused. Space to continue.', { stay: true });
+  else if (!manager.song) status.show('Paused. Space to continue.', { stay: true });
+  else if (isTouch()) status.show('Paused. Tap Play to continue.', { stay: true });
+  else status.show('Paused. Press Play or Space to continue.', { stay: true });
 };
 
 const fullscreen = () =>
@@ -176,11 +178,17 @@ const openExport = () => {
   exporter.toggle();
 };
 
+// Unlock audio inside the tap, before the file picker: phones allow it only there.
+const pickSong = () => {
+  unlockAudio();
+  fileInput.click();
+};
+
 const controls = bindControls(
   find('#controls'),
   find('#corner'),
   {
-    song: () => fileInput.click(),
+    song: pickSong,
     mic: () => void mic.toggle(),
     pause: togglePause,
     style: nextStyle,
@@ -196,12 +204,13 @@ onFullscreenChange(() => controls.setFullscreen(isFullscreen()));
 
 const songs = new SongLoader(status, (song) => manager.playSong(song));
 bindFiles(fileInput, find('#drop'), (file) => void songs.load(file));
+keepSongsPlaying(status, () => manager.kind === 'file' && !manager.isPaused);
 
 bindKeys({
   ...styleKeys,
   d: () => meters.toggle(),
   t: () => tune?.toggle(),
-  o: () => fileInput.click(),
+  o: pickSong,
   m: () => void mic.toggle(),
   s: () => void newWorld(),
   e: openExport,
@@ -216,7 +225,7 @@ bindKeys({
 });
 
 // The first seconds: say what to do, then get out of the way.
-const hint = matchMedia('(pointer: coarse)').matches
+const hint = isTouch()
   ? 'Tap Song or Mic, and the land will follow the sound.'
   : 'Drop a song here, or press Song or Mic, and the land will follow the sound.';
 status.show(hint, { ms: 6000 });
