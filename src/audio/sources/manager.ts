@@ -75,10 +75,24 @@ export class SourceManager implements FeatureSource {
   private paused = false;
 
   constructor(
-    readonly synthetic: SyntheticSource,
+    private landscape: SyntheticSource,
     private readonly speed = 1,
   ) {
-    this.hopSeconds = synthetic.hopSeconds;
+    this.hopSeconds = landscape.hopSeconds;
+  }
+
+  /** The landscape's own music, filling all time no song covers. */
+  get synthetic(): SyntheticSource {
+    return this.landscape;
+  }
+
+  /**
+   * Swaps the landscape's own music for another seed's, past and future alike. The caller
+   * rebuilds the world: nothing built from the old music stays valid.
+   */
+  setSynthetic(next: SyntheticSource): void {
+    if (next.hopSeconds !== this.hopSeconds) throw new Error('The hop size cannot change');
+    this.landscape = next;
   }
 
   get kind(): FeatureSourceKind {
@@ -214,7 +228,7 @@ export class SourceManager implements FeatureSource {
 
   /** Frames of one segment with world time in [a, b). */
   private segmentFrames(seg: Segment, a: number, b: number): FeatureFrame[] {
-    if (!seg.song) return this.synthetic.frames(a, b);
+    if (!seg.song) return this.landscape.frames(a, b);
     // Select by world time after mapping, so adjacent ranges never share or drop a frame.
     const eps = 1e-6;
     const out: FeatureFrame[] = [];
@@ -227,7 +241,7 @@ export class SourceManager implements FeatureSource {
 
   /** A segment's value at any world time, holding a song's last frame past its end. */
   private valueAt(seg: Segment, t: number): FeatureFrame {
-    if (!seg.song) return this.synthetic.frameAt(t);
+    if (!seg.song) return this.landscape.frameAt(t);
     return { ...seg.song.frameAt(t - seg.start), t };
   }
 }
