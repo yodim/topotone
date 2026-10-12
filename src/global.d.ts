@@ -1,6 +1,16 @@
 export {};
 
 declare global {
+  /** Prefixed fullscreen calls, for older Safari. */
+  interface Document {
+    webkitFullscreenEnabled?: boolean;
+    webkitFullscreenElement?: Element | null;
+    webkitExitFullscreen?: () => void;
+  }
+  interface HTMLElement {
+    webkitRequestFullscreen?: () => void;
+  }
+
   interface Window {
     /** Seed and live stats. Handy in the console, and used by the end-to-end tests. */
     topotone?: {

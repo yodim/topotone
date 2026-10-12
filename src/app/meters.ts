@@ -30,7 +30,7 @@ export class Meters {
 
   constructor(
     private readonly source: FeatureSource,
-    private readonly seed: number,
+    public seed: number,
   ) {}
 
   toggle(): void {
