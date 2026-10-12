@@ -19,7 +19,7 @@ for (const seed of SEEDS) {
       const errors: string[] = [];
       page.on('pageerror', (e) => errors.push(e.message));
       await page.goto(`./?seed=${seed}&style=${style}&speed=8`);
-      await page.addStyleTag({ content: '#controls, #status { display: none !important; }' });
+      await page.addStyleTag({ content: '.bar, #status { display: none !important; }' });
       await page.waitForFunction(() => (window.topotone?.source().now ?? 0) >= 24, null, {
         timeout: 20_000,
       });

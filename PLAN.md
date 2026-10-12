@@ -207,6 +207,10 @@ Phase 5:
 
 - `Style.drawSkyStrip` added, optional, with `SkyStrip`: the panorama export draws the sky behind the whole image once, reading the sky along it with `skyAt`, so the sun and clouds are placed once instead of in every tile. Styles without it get `drawSky` in overlapping, blended tiles.
 
+Phase 6:
+
+- `Style.setup` runs again each time the world gets a new seed (New world, or `S`), not only once. A style rebuilds everything that depends on the seed, caches included: the three styles now key their sky caches by the seed.
+
 ## Phases
 
 Each phase ends with all checks green, boxes ticked here, a commit, and a short summary. One phase per session.
@@ -401,15 +405,26 @@ Notes from Phase 5:
 
 ### Phase 6: Interface and polish
 
-- [ ] Minimal control bar that fades out when idle: Song, Mic, Style, Seed (shuffle), Export, Fullscreen, About
-- [ ] Drag and drop anywhere on the page
-- [ ] Keyboard: `Space` play or pause, `1` to `3` styles, `S` new seed, `D` debug, `F` fullscreen, `E` export
+- [x] Minimal control bar that fades out when idle: Song, Mic, Style, Seed (shuffle), Export, Fullscreen, About
+- [x] Drag and drop anywhere on the page
+- [x] Keyboard: `Space` play or pause, `1` to `3` styles, `S` new seed, `D` debug, `F` fullscreen, `E` export
 - [ ] Tap to start on mobile for audio, with the fallback already running behind
 - [ ] `prefers-reduced-motion`: slower scroll, no flashing crossfades
 - [ ] Short friendly errors: unsupported file, decode failure, mic denied
-- [ ] About panel: what it is, privacy (audio never leaves the device), repo link, credits
+- [x] About panel: what it is, privacy (audio never leaves the device), repo link, credits
 
 **Done when:** it works and feels good on a phone and a laptop, and someone who has never seen it understands what to do within a few seconds.
+
+Phase 6 runs in two pull requests: 6a for the buttons, the keys, the About panel and the first-seconds hint; 6b for starting audio on phones, reduced motion and the remaining errors.
+
+Notes from 6a:
+
+- Along the bottom: Song, Mic, Pause (only while a song is loaded, since a phone has no `Space`), Style, New world and Export. In the top left corner: Fullscreen and About. The corner is on the left because ink's seal sits in the top right, and it moves aside while the tuning panel is open. Below 640 px wide the bottom buttons show icons only, centered, and every button keeps a 44 px touch target. Buttons stay clear of the iPhone home bar and notch (`env(safe-area-inset-*)`).
+- Idle: after 3 s without a touch, click or key, the buttons dim to 30%. In fullscreen they disappear with the cursor, and the first touch only brings them back. Fullscreen is hidden where the browser has none for pages (Safari on the iPhone).
+- The Style button steps through paper, ink and ukiyo-e and shows the first word of the style on screen.
+- New world (`S`, the plan's "seed shuffle") rebuilds in place: a new seed for the land and for the landscape's own music, written into the address. A song or the mic keeps playing. Each style is set up again for the new seed (see the contract change log), the last frame stays on top as a still picture until the new land is drawn, then fades out. It waits while an export runs.
+- `A` (or `?`) opens About: what Topotone is, what the buttons do, the keys (only on devices with a mouse), the privacy line, the seed as written in the address, credits and the repo link. It is a modal `dialog`; `Escape`, Close or a click outside closes it.
+- The first seconds: the status line says "Drop a song here, or press Song or Mic, and the land will follow the sound" ("Tap Song or Mic…" on touch screens) for 6 s, or until the first touch or key. While a file is dragged over the page, a dashed veil says "Drop to play".
 
 ### Phase 7: Open source release
 

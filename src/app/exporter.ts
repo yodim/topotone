@@ -68,13 +68,13 @@ function duration(seconds: number): string {
 
 export interface ExporterDeps {
   manager: SourceManager;
-  seed: number;
+  seed: () => number;
   style: () => Style;
   status: Status;
 }
 
 export class Exporter {
-  private busy = false;
+  private working = false;
   private readonly what: HTMLElement;
   private readonly height: HTMLSelectElement;
   private readonly caption: HTMLInputElement;
@@ -109,13 +109,18 @@ export class Exporter {
     return !this.panel.hidden;
   }
 
+  /** True while a panorama is being made. */
+  get busy(): boolean {
+    return this.working;
+  }
+
   toggle(): void {
     if (this.open) this.close();
     else this.show();
   }
 
   show(): void {
-    if (this.busy) return;
+    if (this.working) return;
     const range = exportRange(this.deps.manager);
     this.what.textContent = range.label;
     this.title.value = range.title;
@@ -133,7 +138,8 @@ export class Exporter {
   async render(
     options: { height?: number; caption?: boolean; from?: number; to?: number } = {},
   ): Promise<Panorama> {
-    const { manager, seed, style } = this.deps;
+    const { manager, style } = this.deps;
+    const seed = this.deps.seed();
     const range = exportRange(manager);
     const from = options.from ?? range.from;
     const to = options.to ?? range.to;
@@ -163,8 +169,8 @@ export class Exporter {
   }
 
   private async run(): Promise<void> {
-    if (this.busy) return;
-    this.busy = true;
+    if (this.working) return;
+    this.working = true;
     this.close();
     const { status } = this.deps;
     try {
@@ -188,7 +194,7 @@ export class Exporter {
         error: true,
       });
     } finally {
-      this.busy = false;
+      this.working = false;
     }
   }
 }

@@ -175,4 +175,22 @@ describe('SourceManager', () => {
     expect(manager.kind).toBe('synthetic');
     expect(manager.latestSession()?.start).toBe(15);
   });
+
+  it('swaps the landscape music for a new seed without touching a song', () => {
+    const { manager, changes } = setup();
+    manager.tick(5);
+    const song = fakeSong(20);
+    manager.playSong(song);
+    const songFrames = manager.frames(8, 12);
+    const before = manager.frames(0, 4);
+    const next = new SyntheticSource(2, () => 0);
+    manager.setSynthetic(next);
+    expect(manager.synthetic).toBe(next);
+    expect(manager.frames(0, 4)).toEqual(next.frames(0, 4));
+    expect(manager.frames(0, 4)).not.toEqual(before);
+    expect(manager.frames(8, 12)).toEqual(songFrames);
+    expect(manager.song).toBe(song);
+    // The caller rebuilds the world; the timeline itself did not change.
+    expect(changes()).toBe(1);
+  });
 });

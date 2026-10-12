@@ -17,10 +17,19 @@
         overflow: hidden;
         background: #f6f3ec;
       }
+      .sr,
+      .icon .label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+      }
       #status {
         position: fixed;
         left: 50%;
-        bottom: 76px;
+        bottom: calc(76px + env(safe-area-inset-bottom));
         transform: translateX(-50%);
         max-width: calc(100% - 32px);
         padding: 6px 12px;
@@ -40,21 +49,41 @@
       #status.error {
         color: #9b1c1c;
       }
-      #controls {
+      .bar {
         position: fixed;
-        right: 16px;
-        bottom: 16px;
         display: flex;
         gap: 8px;
         transition: opacity 0.6s;
       }
-      #controls.idle {
+      body.idle .bar {
         opacity: 0.3;
       }
-      #controls button {
+      /* In fullscreen the buttons and the cursor go away completely, and the first touch only
+         brings them back. */
+      body.idle.fullscreen .bar {
+        opacity: 0;
+        pointer-events: none;
+      }
+      body.idle.fullscreen {
+        cursor: none;
+      }
+      #controls {
+        right: calc(16px + env(safe-area-inset-right));
+        bottom: calc(16px + env(safe-area-inset-bottom));
+      }
+      #corner {
+        top: calc(16px + env(safe-area-inset-top));
+        left: calc(16px + env(safe-area-inset-left));
+      }
+      body:has(#tune:not([hidden])) #corner {
+        left: calc(min(320px, 85vw) + 16px);
+      }
+      .bar button {
         display: flex;
         align-items: center;
+        justify-content: center;
         gap: 6px;
+        min-width: 44px;
         min-height: 44px;
         padding: 0 14px;
         border: 1px solid rgba(42, 47, 54, 0.18);
@@ -65,22 +94,171 @@
         color: #2a2f36;
         background: rgba(255, 255, 255, 0.86);
         cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
       }
-      #controls button:hover {
+      .bar button[hidden] {
+        display: none;
+      }
+      .bar button.icon {
+        padding: 0;
+      }
+      .bar button:hover {
         background: #fff;
       }
-      #controls button:focus-visible {
+      .bar button:focus-visible {
         outline: 2px solid #3d6fb4;
         outline-offset: 2px;
       }
-      #controls button[aria-pressed='true'] {
+      .bar button[aria-pressed='true'] {
         color: #fff;
         background: #b8322f;
         border-color: #b8322f;
       }
-      #controls svg {
+      #fullscreen-button[aria-pressed='true'] {
+        color: #2a2f36;
+        background: rgba(255, 255, 255, 0.86);
+        border-color: rgba(42, 47, 54, 0.18);
+      }
+      .bar svg {
         width: 18px;
         height: 18px;
+        flex: none;
+      }
+      #pause-button .play,
+      #pause-button.paused .pause,
+      #fullscreen-button .leave,
+      #fullscreen-button[aria-pressed='true'] .enter {
+        display: none;
+      }
+      #pause-button.paused .play,
+      #fullscreen-button[aria-pressed='true'] .leave {
+        display: inline;
+      }
+      /* Phones: icons only, centered along the bottom. */
+      @media (max-width: 640px) {
+        #controls {
+          left: calc(16px + env(safe-area-inset-left));
+          justify-content: center;
+          gap: 6px;
+        }
+        #controls button {
+          padding: 0;
+        }
+        #controls .label {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          overflow: hidden;
+          clip-path: inset(50%);
+          white-space: nowrap;
+        }
+      }
+      #drop {
+        position: fixed;
+        inset: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 2px dashed rgba(42, 47, 54, 0.45);
+        border-radius: 12px;
+        font:
+          20px system-ui,
+          sans-serif;
+        color: #2a2f36;
+        background: rgba(255, 255, 255, 0.35);
+        pointer-events: none;
+      }
+      #drop[hidden] {
+        display: none;
+      }
+      #drop span {
+        padding: 8px 16px;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.86);
+      }
+      #about {
+        width: min(440px, calc(100% - 32px));
+        max-height: calc(100% - 32px);
+        box-sizing: border-box;
+        overflow-y: auto;
+        padding: 20px 22px 16px;
+        border: 0;
+        border-radius: 10px;
+        font:
+          14px/1.5 system-ui,
+          sans-serif;
+        color: #2a2f36;
+        background: rgba(255, 255, 255, 0.97);
+        box-shadow: 0 4px 24px rgba(0, 0, 0, 0.18);
+      }
+      #about::backdrop {
+        background: rgba(20, 24, 30, 0.25);
+      }
+      #about h2 {
+        margin: 0 0 6px;
+        font-size: 18px;
+      }
+      #about p {
+        margin: 8px 0;
+      }
+      #about .small {
+        color: #5b636e;
+        font-size: 13px;
+      }
+      #about a {
+        color: #2f5f9e;
+      }
+      #about dl {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 4px 16px;
+        margin: 8px 0 10px;
+      }
+      #about dl div {
+        display: flex;
+        gap: 8px;
+        align-items: baseline;
+      }
+      #about dt {
+        flex: none;
+        min-width: 5.6em;
+        text-align: right;
+      }
+      #about dd {
+        margin: 0;
+      }
+      #about kbd {
+        display: inline-block;
+        min-width: 1.2em;
+        padding: 0 5px;
+        border: 1px solid rgba(42, 47, 54, 0.25);
+        border-radius: 4px;
+        font:
+          12px/1.6 ui-monospace,
+          monospace;
+        text-align: center;
+        background: #fff;
+      }
+      /* The keys only matter with a keyboard. */
+      @media not ((hover: hover) and (pointer: fine)) {
+        #about .keys {
+          display: none;
+        }
+      }
+      #about form {
+        display: flex;
+        justify-content: flex-end;
+        margin: 12px 0 0;
+      }
+      #about button {
+        font: inherit;
+        min-height: 36px;
+        padding: 0 16px;
+        border: 1px solid #2a2f36;
+        border-radius: 18px;
+        color: #fff;
+        background: #2a2f36;
+        cursor: pointer;
       }
       #tune {
         position: fixed;
@@ -147,8 +325,8 @@
       }
       #export {
         position: fixed;
-        right: 16px;
-        bottom: 76px;
+        right: calc(16px + env(safe-area-inset-right));
+        bottom: calc(76px + env(safe-area-inset-bottom));
         width: min(300px, calc(100% - 32px));
         box-sizing: border-box;
         padding: 14px;
@@ -222,7 +400,62 @@
     <canvas id="stage" aria-label="Generated landscape"></canvas>
     <div id="status" role="status" aria-live="polite"></div>
     <input id="file-input" type="file" accept="audio/*" hidden />
-    <div id="controls">
+    <div id="corner" class="bar">
+      <button
+        id="fullscreen-button"
+        class="icon"
+        type="button"
+        title="Fullscreen (F)"
+        aria-pressed="false"
+      >
+        <svg class="enter" viewBox="0 0 24 24" aria-hidden="true">
+          <path
+            d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        <svg class="leave" viewBox="0 0 24 24" aria-hidden="true">
+          <path
+            d="M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        <span class="label">Fullscreen</span>
+      </button>
+      <button id="about-button" class="icon" type="button" title="About Topotone (A)">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle
+            cx="12"
+            cy="12"
+            r="9"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+          <path
+            d="M12 11v6"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+          <circle cx="12" cy="7.5" r="1.3" fill="currentColor" />
+        </svg>
+        <span class="label">About</span>
+      </button>
+    </div>
+    <div id="controls" class="bar">
       <button id="song-button" type="button" title="Play a song (O)">
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path
@@ -235,7 +468,7 @@
           <circle cx="6" cy="18" r="3" fill="currentColor" />
           <circle cx="17" cy="16" r="3" fill="currentColor" />
         </svg>
-        Song
+        <span class="label">Song</span>
       </button>
       <button
         id="mic-button"
@@ -251,9 +484,52 @@
             stroke="currentColor"
             stroke-width="2"
             stroke-linecap="round"
+            stroke-linejoin="round"
           />
         </svg>
-        Mic
+        <span class="label">Mic</span>
+      </button>
+      <button id="pause-button" type="button" title="Pause (Space)" hidden>
+        <svg class="pause" viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="6" y="4" width="4" height="16" rx="1" fill="currentColor" />
+          <rect x="14" y="4" width="4" height="16" rx="1" fill="currentColor" />
+        </svg>
+        <svg class="play" viewBox="0 0 24 24" aria-hidden="true">
+          <path
+            d="M7 4.5v15a1 1 0 0 0 1.5.9l12-7.5a1 1 0 0 0 0-1.8l-12-7.5A1 1 0 0 0 7 4.5z"
+            fill="currentColor"
+          />
+        </svg>
+        <span class="label">Pause</span>
+      </button>
+      <button id="style-button" type="button" title="Next style (1, 2, 3)">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path
+            d="M12 3a9 9 0 1 0 0 18c1.4 0 2-1 1.5-2.2-.6-1.4.2-2.8 1.8-2.8H18a3 3 0 0 0 3-3c0-5.5-4-10-9-10z"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+          <circle cx="7.5" cy="11" r="1.4" fill="currentColor" />
+          <circle cx="10.5" cy="7" r="1.4" fill="currentColor" />
+          <circle cx="15.5" cy="8" r="1.4" fill="currentColor" />
+        </svg>
+        <span class="sr">Style: </span><span class="label">Paper</span>
+      </button>
+      <button id="world-button" type="button" title="A new world (S)">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path
+            d="M3 17h3.5c2 0 3-1 4.2-3l2.6-4c1.2-2 2.2-3 4.2-3H21M18 4l3 3-3 3M3 7h3.5c1.6 0 2.6.7 3.5 1.8M21 17h-3.5c-1.6 0-2.6-.7-3.5-1.8M18 14l3 3-3 3"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        <span class="label">New world</span>
       </button>
       <button id="export-button" type="button" title="Export the panorama (E)">
         <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -266,7 +542,7 @@
             stroke-linejoin="round"
           />
         </svg>
-        Export
+        <span class="label">Export</span>
       </button>
     </div>
     <form id="export" hidden>
@@ -287,6 +563,78 @@
         <button type="submit">Export</button>
       </div>
     </form>
+    <div id="drop" hidden><span>Drop to play</span></div>
+    <dialog id="about" aria-labelledby="about-title">
+      <h2 id="about-title">Topotone</h2>
+      <p>
+        Sound turned into a landscape. The melody raises the mountains, beats plant trees and the
+        bass carves rivers. With no sound at all, the land follows a quiet music of its own.
+      </p>
+      <p>
+        Press Song to play a song from this device, or Mic to let the land listen to the room. Style
+        draws the same world another way, New world makes a different one, and Export saves the
+        whole stretch as one long picture.
+      </p>
+      <p class="keys">You can also drop a song anywhere on the page. The keys:</p>
+      <dl class="keys">
+        <div>
+          <dt><kbd>Space</kbd></dt>
+          <dd>Pause or play</dd>
+        </div>
+        <div>
+          <dt><kbd>O</kbd></dt>
+          <dd>Open a song</dd>
+        </div>
+        <div>
+          <dt><kbd>M</kbd></dt>
+          <dd>Microphone</dd>
+        </div>
+        <div>
+          <dt><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></dt>
+          <dd>Pick a style</dd>
+        </div>
+        <div>
+          <dt><kbd>S</kbd></dt>
+          <dd>New world</dd>
+        </div>
+        <div>
+          <dt><kbd>E</kbd></dt>
+          <dd>Export</dd>
+        </div>
+        <div>
+          <dt><kbd>F</kbd></dt>
+          <dd>Fullscreen</dd>
+        </div>
+        <div>
+          <dt><kbd>D</kbd></dt>
+          <dd>Meters</dd>
+        </div>
+        <div>
+          <dt><kbd>A</kbd></dt>
+          <dd>About</dd>
+        </div>
+        <div>
+          <dt><kbd>Esc</kbd></dt>
+          <dd>Close a panel</dd>
+        </div>
+      </dl>
+      <p>
+        Your audio never leaves this device. There are no network calls, no analytics and no
+        uploads.
+      </p>
+      <p>
+        This world's seed is <span id="about-seed"></span>. The address keeps it, so a link brings
+        back the same world.
+      </p>
+      <p class="small">
+        Made by yodim. The styles are inspired by paper cutout, ink painting and ukiyo-e techniques.
+        No third-party code at runtime. The code is open source (MIT) on
+        <a href="https://github.com/yodim/topotone" target="_blank" rel="noopener">GitHub</a>.
+      </p>
+      <form method="dialog">
+        <button autofocus>Close</button>
+      </form>
+    </dialog>
     <noscript>Topotone needs JavaScript to draw the landscape.</noscript>
     <script type="module" src="/src/main.ts"></script>
   </body>

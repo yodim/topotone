@@ -26,7 +26,7 @@ export function drawSky(ctx: CanvasRenderingContext2D, sky: SkyState, view: View
   const wash = Math.round(40 * washFor(sky));
   const dusk = Math.round(40 * duskFor(sky));
   const sunY = Math.round(view.height * lerp(0.42, 0.2, sky.brightness));
-  const sheet = cache.get(view, `${wash}|${dusk}|${sunY}`, (c) =>
+  const sheet = cache.get(view, `${look().seed}|${wash}|${dusk}|${sunY}`, (c) =>
     paintPaper(c, view, wash / 40, dusk / 40, sunY),
   );
   if (sheet) ctx.drawImage(sheet, 0, 0, view.width, view.height);

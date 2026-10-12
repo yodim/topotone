@@ -153,6 +153,11 @@ interface Fading {
   layers: LayerState[];
   /** The style the old strips were drawn in. */
   style: Style;
+  /**
+   * A new world: the last frame was copied to the fade canvas and fades out as a still
+   * picture. The old world's style setup is gone, so it cannot be drawn again.
+   */
+  still: boolean;
   /** When the fade starts. Pushed forward while the new land is still being drawn. */
   start: number;
   /** When the old land was replaced, to cap how long it is held. */
@@ -177,9 +182,11 @@ export class Renderer {
   private playhead = PLAYHEAD;
   private playheadTarget = PLAYHEAD;
   private liveUntil = Infinity;
+  /** The canvas of the last frame drawn, for the still picture when the world changes. */
+  private stage: HTMLCanvasElement | null = null;
 
   constructor(
-    private readonly world: World,
+    private world: World,
     private style: Style,
   ) {
     this.chunkScratch = scratchContext();
@@ -191,10 +198,12 @@ export class Renderer {
    * and fade out on top of the new ones, so the change reads as a soft crossfade.
    */
   reset(): void {
-    if (this.layers.length > 0) {
+    // A still picture of the old world stays on top until it has faded out.
+    if (this.layers.length > 0 && !this.fading?.still) {
       this.fading = {
         layers: this.layers,
         style: this.style,
+        still: false,
         start: this.clock,
         since: this.clock,
         surfaceKey: this.surfaceKey,
@@ -202,6 +211,37 @@ export class Renderer {
     }
     this.layers = [];
     this.surfaceKey = '';
+  }
+
+  /**
+   * Swaps in a new world (a new seed). The last frame stays on top as a still picture until
+   * the new land is drawn, then fades out. Call it right after the style was set up for the
+   * new seed, before the next frame.
+   */
+  setWorld(world: World): void {
+    if (world === this.world) return;
+    const surfaceKey = this.surfaceKey;
+    this.world = world;
+    this.reset();
+    const stage = this.stage;
+    if (!stage || stage.width <= 1 || stage.height <= 1) {
+      this.fading = null;
+      return;
+    }
+    this.fadeScratch ??= scratchContext();
+    const c = this.fadeScratch;
+    resize(c, stage.width, stage.height);
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.clearRect(0, 0, stage.width, stage.height);
+    c.drawImage(stage, 0, 0);
+    this.fading = {
+      layers: [],
+      style: this.style,
+      still: true,
+      start: this.clock,
+      since: this.clock,
+      surfaceKey,
+    };
   }
 
   /** Where the playhead is now, as a fraction of the view width. */
@@ -240,6 +280,7 @@ export class Renderer {
     this.playhead += Math.max(-step, Math.min(step, gap));
     this.clock = clock;
     this.liveUntil = liveUntil;
+    this.stage = ctx.canvas;
     this.fit(surface);
     let fading = this.fading;
     const fade = fading ? 1 - smoothstep(0, FADE_SECONDS, clock - fading.start) : 0;
@@ -258,7 +299,7 @@ export class Renderer {
     const sky = this.world.skyAt(now);
     // Same style: each old layer fades out over its new one. New style: the old style's
     // whole frame is drawn aside and fades out over the new frame.
-    const sameStyle = fading !== null && fading.style === this.style;
+    const sameStyle = fading !== null && !fading.still && fading.style === this.style;
 
     // Only the time spent drawing chunks counts, so compositing never starves a layer.
     let allowed = FADE_BUDGET_CHUNKS;
@@ -299,7 +340,10 @@ export class Renderer {
     if (fading && !complete && clock - fading.since < MAX_HOLD_SECONDS) fading.start = clock;
 
     if (fading && !sameStyle) {
-      const old = this.oldFrame(fading, surface, view, playheadX, sky);
+      const old = fading.still
+        ? this.fadeScratch
+        : this.oldFrame(fading, surface, view, playheadX, sky);
+      if (!old) return;
       ctx.save();
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.globalAlpha = fade;

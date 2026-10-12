@@ -47,12 +47,20 @@ const GROUND_PX_PER_SECOND = 64;
 const cache = new ViewCache();
 
 function skySheet(sky: SkyState, view: View): CanvasImageSource | null {
-  const { papers } = look();
+  const { papers, seed } = look();
   const c = skyColors(papers, sky);
   const sunAlpha = sunAlphaFor(sky);
   const sunY = Math.round(view.height * lerp(0.44, 0.16, sky.brightness));
   const q = (rgb: Rgb) => rgb.map((v) => Math.round(v / 2)).join(',');
-  const key = [q(c.top), q(c.horizon), q(c.sun), sunY, Math.round(sunAlpha * 40), papers.name];
+  const key = [
+    q(c.top),
+    q(c.horizon),
+    q(c.sun),
+    sunY,
+    Math.round(sunAlpha * 40),
+    papers.name,
+    seed,
+  ];
   return cache.get(view, key.join('|'), (ctx) => paintSkySheet(ctx, c, sunAlpha, sunY, view));
 }
 
