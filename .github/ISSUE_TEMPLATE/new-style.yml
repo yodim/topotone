@@ -1,0 +1,44 @@
+name: New style
+description: Propose an art style for the same world.
+title: 'Style: '
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        A style only draws: it gets the same ridges, trees, water and sky as every other style
+        and paints them its own way. Each style is inspired by a technique, never a copy of a
+        specific artwork. "Add a style" in CONTRIBUTING.md walks through building one from the
+        template.
+  - type: input
+    id: technique
+    attributes:
+      label: The technique
+      placeholder: Watercolor, pixel art, risograph, blueprint...
+    validations:
+      required: true
+  - type: textarea
+    id: look
+    attributes:
+      label: How the world would look
+      description: The sky, the distant and near ranges, trees and rocks, water, mist.
+    validations:
+      required: true
+  - type: textarea
+    id: references
+    attributes:
+      label: References for the technique
+      description: Links that show the technique in general. Not a single artwork to copy.
+  - type: textarea
+    id: needs
+    attributes:
+      label: Anything the scene does not give a style yet
+      description: For example a season, or the time of day. Changes to the scene are discussed before they are built.
+  - type: dropdown
+    id: build
+    attributes:
+      label: Would you like to build it?
+      options:
+        - 'Yes'
+        - Maybe, with some help
+        - No, it is just an idea
