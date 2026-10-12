@@ -67,6 +67,16 @@ await prepare(style);
 const renderer = new Renderer(world, style);
 const meters = new Meters(manager, seed);
 
+// Reduced motion: the landscape's own music runs at half speed (the land looks the same and
+// moves slower), fades take longer and mist drifts slower. Songs and the mic keep real time.
+const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+const applyMotion = () => {
+  manager.setPace(reducedMotion.matches ? 0.5 : 1);
+  renderer.setGentle(reducedMotion.matches);
+};
+applyMotion();
+reducedMotion.addEventListener('change', applyMotion);
+
 // A new song, or the mic, means a new timeline: rebuild the world and fade the new land in.
 // Live input needs windows that only look back, so the land never changes once drawn.
 const rebuild = () => {

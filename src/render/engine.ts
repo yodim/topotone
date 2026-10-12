@@ -138,6 +138,8 @@ const LIVE_EDGE_FADE = 28;
 
 /** Seconds over which old land fades out after the world is rebuilt or the style changes. */
 const FADE_SECONDS = 0.5;
+/** The same under reduced motion: slower, so a change of style never flashes. */
+const GENTLE_FADE_SECONDS = 1.5;
 /**
  * While old land is fading out, new chunks are drawn for at most this many milliseconds per
  * frame (at least one chunk), so a style change never stalls a frame. The old land stays
@@ -179,6 +181,9 @@ export class Renderer {
   private scale = 1;
   private fading: Fading | null = null;
   private clock = 0;
+  /** View.clock for the styles: slower under reduced motion, so mist and clouds drift less. */
+  private drift = 0;
+  private gentle = false;
   private playhead = PLAYHEAD;
   private playheadTarget = PLAYHEAD;
   private liveUntil = Infinity;
@@ -244,6 +249,11 @@ export class Renderer {
     };
   }
 
+  /** Reduced motion: longer fades, and drifting effects at half speed. */
+  setGentle(gentle: boolean): void {
+    this.gentle = gentle;
+  }
+
   /** Where the playhead is now, as a fraction of the view width. */
   get playheadFraction(): number {
     return this.playhead;
@@ -275,7 +285,9 @@ export class Renderer {
     clock: number,
     liveUntil = Infinity,
   ): void {
-    const step = Math.max(0, clock - this.clock) * PLAYHEAD_SPEED;
+    const dt = Math.max(0, clock - this.clock);
+    this.drift += this.gentle ? dt / 2 : dt;
+    const step = dt * PLAYHEAD_SPEED;
     const gap = this.playheadTarget - this.playhead;
     this.playhead += Math.max(-step, Math.min(step, gap));
     this.clock = clock;
@@ -283,7 +295,8 @@ export class Renderer {
     this.stage = ctx.canvas;
     this.fit(surface);
     let fading = this.fading;
-    const fade = fading ? 1 - smoothstep(0, FADE_SECONDS, clock - fading.start) : 0;
+    const fadeSeconds = this.gentle ? GENTLE_FADE_SECONDS : FADE_SECONDS;
+    const fade = fading ? 1 - smoothstep(0, fadeSeconds, clock - fading.start) : 0;
     if (fading && (fade <= 0 || fading.surfaceKey !== this.surfaceKey)) {
       this.fading = fading = null;
       this.releaseFadeScratch();
@@ -293,7 +306,7 @@ export class Renderer {
       height: surface.cssHeight,
       dpr: surface.dpr,
       now,
-      clock,
+      clock: this.drift,
     };
     const playheadX = surface.cssWidth * this.playhead;
     const sky = this.world.skyAt(now);

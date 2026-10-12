@@ -193,4 +193,16 @@ describe('SourceManager', () => {
     // The caller rebuilds the world; the timeline itself did not change.
     expect(changes()).toBe(1);
   });
+
+  it('runs the landscape slower under reduced motion, but never a song', () => {
+    const { manager } = setup();
+    manager.setPace(0.5);
+    manager.tick(2);
+    expect(manager.now()).toBe(1);
+    const song = fakeSong(30);
+    manager.playSong(song);
+    song.advance(2);
+    manager.tick(2);
+    expect(manager.now()).toBe(3);
+  });
 });
